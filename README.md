@@ -11,7 +11,11 @@ any other arch (self-hosting won't work without files).
 - os.Open always returns ENOTSUP
 - use getentropy() syscall during runtime init, not openening /dev/urandom. crypto/rand already uses getentropy.
 
+- more disabled: other file-related syscalls (stat, umask, etc), fork & exec, ioctl, bpf (was deprecated)
+
 ## Notes
+- Many syscall numbers have been removed. Mostly to catch uses of them.
+- Many changes are for all of openbsd. Have to revisit later, but it should get a separate architecture.
 - Package "time" won't be able to find a timezone database. If you need one, initialize it explicitly with time.LoadLocationFromTZData.
 
 ## Todo
