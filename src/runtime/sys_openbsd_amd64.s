@@ -96,17 +96,6 @@ TEXT runtime·exitThread(SB),NOSPLIT,$0-8
 	MOVL	$0xf1, 0xf1		// crash
 	JMP	0(PC)
 
-TEXT runtime·open(SB),NOSPLIT,$-8
-	MOVQ	name+0(FP), DI		// arg 1 pathname
-	MOVL	mode+8(FP), SI		// arg 2 flags
-	MOVL	perm+12(FP), DX		// arg 3 mode
-	MOVL	$5, AX
-	SYSCALL
-	JCC	2(PC)
-	MOVL	$-1, AX
-	MOVL	AX, ret+16(FP)
-	RET
-
 TEXT runtime·closefd(SB),NOSPLIT,$-8
 	MOVL	fd+0(FP), DI		// arg 1 fd
 	MOVL	$6, AX
@@ -377,4 +366,15 @@ TEXT runtime·closeonexec(SB),NOSPLIT,$0
 	MOVQ	$1, DX		// FD_CLOEXEC
 	MOVL	$92, AX		// fcntl
 	SYSCALL
+	RET
+
+// int32 getentropy(buf *byte, int64 buflen)
+TEXT runtime·getentropy(SB),NOSPLIT,$0
+	MOVQ	buf+0(FP), DI
+	MOVQ	buflen+8(FP), SI
+	MOVL	$7, AX
+	SYSCALL
+	JCC	2(PC)
+	NEGQ	AX
+	MOVL	AX, ret+16(FP)
 	RET

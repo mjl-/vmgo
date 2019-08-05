@@ -180,47 +180,6 @@ func epipecheck(file *File, e error) {
 // On Unix-like systems, it is "/dev/null"; on Windows, "NUL".
 const DevNull = "/dev/null"
 
-// openFileNolog is the Unix implementation of OpenFile.
-// Changes here should be reflected in openFdAt, if relevant.
-func openFileNolog(name string, flag int, perm FileMode) (*File, error) {
-	setSticky := false
-	if !supportsCreateWithStickyBit && flag&O_CREATE != 0 && perm&ModeSticky != 0 {
-		if _, err := Stat(name); IsNotExist(err) {
-			setSticky = true
-		}
-	}
-
-	var r int
-	for {
-		var e error
-		r, e = syscall.Open(name, flag|syscall.O_CLOEXEC, syscallMode(perm))
-		if e == nil {
-			break
-		}
-
-		// On OS X, sigaction(2) doesn't guarantee that SA_RESTART will cause
-		// open(2) to be restarted for regular files. This is easy to reproduce on
-		// fuse file systems (see https://golang.org/issue/11180).
-		if runtime.GOOS == "darwin" && e == syscall.EINTR {
-			continue
-		}
-
-		return nil, &PathError{"open", name, e}
-	}
-
-	// open(2) itself won't handle the sticky bit on *BSD and Solaris
-	if setSticky {
-		setStickyBit(name)
-	}
-
-	// There's a race here with fork/exec, which we are
-	// content to live with. See ../syscall/exec_unix.go.
-	if !supportsCloseOnExec {
-		syscall.CloseOnExec(r)
-	}
-
-	return newFile(uintptr(r), name, kindOpenFile), nil
-}
 
 // Close closes the File, rendering it unusable for I/O.
 // On files that support SetDeadline, any pending I/O operations will

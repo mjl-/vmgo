@@ -10,7 +10,6 @@ const (
 	SYS_FORK           = 2   // { int sys_fork(void); }
 	SYS_READ           = 3   // { ssize_t sys_read(int fd, void *buf, size_t nbyte); }
 	SYS_WRITE          = 4   // { ssize_t sys_write(int fd, const void *buf, \
-	SYS_OPEN           = 5   // { int sys_open(const char *path, \
 	SYS_CLOSE          = 6   // { int sys_close(int fd); }
 	SYS___TFORK        = 8   // { int sys___tfork(const struct __tfork *param, \
 	SYS_LINK           = 9   // { int sys_link(const char *path, const char *link); }

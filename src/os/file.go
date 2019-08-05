@@ -296,14 +296,7 @@ func Create(name string) (*File, error) {
 // methods on the returned File can be used for I/O.
 // If there is an error, it will be of type *PathError.
 func OpenFile(name string, flag int, perm FileMode) (*File, error) {
-	testlog.Open(name)
-	f, err := openFileNolog(name, flag, perm)
-	if err != nil {
-		return nil, err
-	}
-	f.appendMode = flag&O_APPEND != 0
-
-	return f, nil
+	return nil, syscall.ENOTSUP
 }
 
 // lstat is overridden in tests.

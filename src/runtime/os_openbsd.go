@@ -214,14 +214,16 @@ func osinit() {
 	haveMapStack = getOSRev() >= 201805 // OpenBSD 6.3
 }
 
-var urandom_dev = []byte("/dev/urandom\x00")
+
+func getentropy(buf uintptr, buflen int64) int32
 
 //go:nosplit
 func getRandomData(r []byte) {
-	fd := open(&urandom_dev[0], 0 /* O_RDONLY */, 0)
-	n := read(fd, unsafe.Pointer(&r[0]), int32(len(r)))
-	closefd(fd)
-	extendRandom(r, int(n))
+	// xxx split in parts of max 256 bytes. or make sure caller doesn't ask so much.
+	n := getentropy(uintptr(unsafe.Pointer(&r[0])), int64(len(r)))
+	if n < 0 {
+		panic("getentropy")
+	}
 }
 
 func goenvs() {

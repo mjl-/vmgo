@@ -1,3 +1,31 @@
+# Modifications
+
+This branch has an experiment for having a runtime without access
+to files. The changes only apply to openbsd/amd64, to be build on
+any other arch (self-hosting won't work without files).
+
+## Changes
+
+- syscall.Open returns ENOTSUP
+- os.Getwd always returns "/"
+- os.Open always returns ENOTSUP
+- use getentropy() syscall during runtime init, not openening /dev/urandom. crypto/rand already uses getentropy.
+
+## Notes
+- Package "time" won't be able to find a timezone database. If you need one, initialize it explicitly with time.LoadLocationFromTZData.
+
+## Todo
+
+- Find more places that try to open a file.
+- Use pledge early in startup to limit syscalls, fix the cases where it does.
+- Get rid of more path-related system calls: Stat, Chown, etc.
+- Disable forking.
+- Replace network stack with something that talks to a tun(4) device, configured through environment.
+
+
+(original Go README below)
+
+
 # The Go Programming Language
 
 Go is an open source programming language that makes it easy to build simple,
