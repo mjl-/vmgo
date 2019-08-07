@@ -1,24 +1,62 @@
-# Modifications
+# vmgo
 
-This branch has an experiment for having a runtime without access
-to files. The changes only apply to openbsd/amd64, to be build on
-any other arch (self-hosting won't work without files).
+NOTE: this is work in progress.
 
-## Changes
+The goal of vmgo is to get to a go toolchain that can compile
+existing Go code (with no or otherwise minimal changes) to a
+standalone virtual image that can run in a (minimal) virtual machine
+monitor.
 
-- syscall.Open returns ENOTSUP
-- os.Getwd always returns "/"
-- os.Open always returns ENOTSUP
-- use getentropy() syscall during runtime init, not openening /dev/urandom. crypto/rand already uses getentropy.
+As an example, something like this should be possible:
 
-- More disabled: other file-related syscalls (stat, umask, etc), fork & exec, ioctl, bpf (was deprecated)
-- Added builtin files, registered with os.AddFile. can be used for reading /etc/resolv.conf, or /etc/ssl/cert.pem. Also added os.PrintOpen(bool), to toggle printing Open's, useful while developing.
-- time.SetTimezoneDB lets you set contents of the lib/time/zoneinfo.zip. For now, timezone config can be done through TZ, eg TZ=Europe/Amsterdam. Should perhaps just add always include the zip file in the time package.
+	cd some/existing/project
+	GOOS=somevm GOARCH=amd64 go build -o project.img
+	some-minimal-vmm -net xxxnetconfig project.img
 
-## Notes
-- Many changes are for all of openbsd. Have to revisit later, but it should get a separate architecture.
-- Many syscall numbers have been removed. Mostly to catch uses of them. Might want to add them back later.
-- Should reenable API checking, with the correct baseline/exceptions.
+This branch started as an experiment for having a runtime without
+access to files. The changes apply to openbsd/amd64, with
+cross-compilation (self-hosting won't work without files).
+
+Lots of functionality has to be stripped down, or replaced with a
+builtin implementation, because there is no OS to provide the
+functionality. Files. Network stack. Processes, signals. Most
+remaining system calls.
+
+The initial target is solo5.
+
+## changes
+
+(this list is probably incomplete)
+
+- many "syscall" functions return ENOTSUP
+- file system-related typically return errors. os.Open() only works on files that were added with the new os.AddFile(path, data), for adding /etc/resolv.conf, /etc/ssl/cert.pem, etc.  os.PrintOpen(bool) toggles printing opens, for debugging.
+- getentropy() is used during runtime init, not /dev/urandom (crypto/rand already uses getentropy)
+- no cgo, probably necessary anyway, but also gets rid of one more variable.
+- added time.SetTimezoneDB to set fake contents for GOROOT+lib/time/zoneinfo.zip. For now, timezone config can be done through TZ, eg TZ=Europe/Amsterdam. Should perhaps just add always include the zip file in the time package.
+
+## file access
+
+The runtime does surprisingly few file opens. These might be opened on openbsd, and replacements need to be provided.
+
+	- /etc/ssl/cert.pem, src/crypto/x509/root_bsd.go
+	- /etc/mime.types, src/mime/type_unix.go; /usr/share/misc/mime.types on openbsd
+	- /etc/hosts, in net for resolving, in src/net/hook.go
+	- /etc/services, in readServices, src/net/port_unix.go
+	- /etc/protocols, in readProtocols, src/net/lookup_unix.go
+	- /etc/user, /etc/group, in lookupGroup, lookupUser, in src/os/user/lookup_unix.go
+	- /dev/log, /var/run/syslog, /var/run/log in src/log/syslog/syslog_unix.go, net.Dial with unix or unixgram as parameter.
+
+## todo
+
+- add a "net" backend that talks to a tun device (as a file descriptor for now).
+- remove process creation from the runtime for the openbsd arch. take a hint from wasm, which is single process.
+- some way to pass & parse variables when there are no more regular env vars.
+- remove more system calls. see how setting TLS for "g" can be stripped.
+- adjust to target solo5 (or something else by that time).
+
+- restore API check during toolchain build.
+- don't target "openbsd", but add a new arch.
+
 
 (original Go README below)
 
