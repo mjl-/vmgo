@@ -740,7 +740,7 @@ func (t *tester) registerTests() {
 			name:    "api",
 			heading: "API check",
 			fn: func(dt *distTest) error {
-				if t.compileOnly {
+				if true || t.compileOnly {
 					t.addCmd(dt, "src", "go", "build", filepath.Join(goroot, "src/cmd/api/run.go"))
 					return nil
 				}
