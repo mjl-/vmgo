@@ -1,4 +1,4 @@
-// Copyright 2009 The Go Authors. All rights reserved.
+// Copyright 2016 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -9,43 +9,41 @@ import (
 	"time"
 )
 
-func fillFileStatFromSys(fs *fileStat, name string) {
-	fs.name = basename(name)
-	fs.size = fs.sys.Size
-	fs.modTime = timespecToTime(fs.sys.Mtim)
-	fs.mode = FileMode(fs.sys.Mode & 0777)
-	switch fs.sys.Mode & syscall.S_IFMT {
-	case syscall.S_IFBLK:
-		fs.mode |= ModeDevice
-	case syscall.S_IFCHR:
-		fs.mode |= ModeDevice | ModeCharDevice
-	case syscall.S_IFDIR:
-		fs.mode |= ModeDir
-	case syscall.S_IFIFO:
-		fs.mode |= ModeNamedPipe
-	case syscall.S_IFLNK:
-		fs.mode |= ModeSymlink
-	case syscall.S_IFREG:
-		// nothing to do
-	case syscall.S_IFSOCK:
-		fs.mode |= ModeSocket
+var zeroTime time.Time
+
+// Stat returns the FileInfo structure describing file.
+// If there is an error, it will be of type *PathError.
+func (f *File) Stat() (FileInfo, error) {
+	if f == nil {
+		return nil, ErrInvalid
 	}
-	if fs.sys.Mode&syscall.S_ISGID != 0 {
-		fs.mode |= ModeSetgid
+	if f.isFake() {
+		return fakeStat(f.fake.Path)
 	}
-	if fs.sys.Mode&syscall.S_ISUID != 0 {
-		fs.mode |= ModeSetuid
-	}
-	if fs.sys.Mode&syscall.S_ISVTX != 0 {
-		fs.mode |= ModeSticky
-	}
+	return nil, syscall.ENOSYS
 }
 
-func timespecToTime(ts syscall.Timespec) time.Time {
-	return time.Unix(ts.Sec, int64(ts.Nsec))
+func fakeStat(path string) (FileInfo, error) {
+	buf, ok := fakeFiles[path]
+	if !ok {
+		return nil, ErrNotExist
+	}
+	st := &fileStat{
+		name: path,
+		size: int64(len(buf)),
+		mode: 0,
+		modTime: zeroTime,
+		sys: syscall.Stat_t{},
+	}
+	return st, nil
 }
 
-// For testing.
-func atime(fi FileInfo) time.Time {
-	return timespecToTime(fi.Sys().(*syscall.Stat_t).Atim)
+// statNolog stats a file with no test logging.
+func statNolog(name string) (FileInfo, error) {
+	return fakeStat(name)
+}
+
+// lstatNolog lstats a file with no test logging.
+func lstatNolog(name string) (FileInfo, error) {
+	return fakeStat(name)
 }

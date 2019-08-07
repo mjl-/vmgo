@@ -11,21 +11,14 @@ any other arch (self-hosting won't work without files).
 - os.Open always returns ENOTSUP
 - use getentropy() syscall during runtime init, not openening /dev/urandom. crypto/rand already uses getentropy.
 
-- more disabled: other file-related syscalls (stat, umask, etc), fork & exec, ioctl, bpf (was deprecated)
+- More disabled: other file-related syscalls (stat, umask, etc), fork & exec, ioctl, bpf (was deprecated)
+- Added builtin files, registered with os.AddFile. can be used for reading /etc/resolv.conf, or /etc/ssl/cert.pem. Also added os.PrintOpen(bool), to toggle printing Open's, useful while developing.
+- time.SetTimezoneDB lets you set contents of the lib/time/zoneinfo.zip. For now, timezone config can be done through TZ, eg TZ=Europe/Amsterdam. Should perhaps just add always include the zip file in the time package.
 
 ## Notes
-- Many syscall numbers have been removed. Mostly to catch uses of them.
 - Many changes are for all of openbsd. Have to revisit later, but it should get a separate architecture.
-- Package "time" won't be able to find a timezone database. If you need one, initialize it explicitly with time.LoadLocationFromTZData.
-
-## Todo
-
-- Find more places that try to open a file.
-- Use pledge early in startup to limit syscalls, fix the cases where it does.
-- Get rid of more path-related system calls: Stat, Chown, etc.
-- Disable forking.
-- Replace network stack with something that talks to a tun(4) device, configured through environment.
-
+- Many syscall numbers have been removed. Mostly to catch uses of them. Might want to add them back later.
+- Should reenable API checking, with the correct baseline/exceptions.
 
 (original Go README below)
 

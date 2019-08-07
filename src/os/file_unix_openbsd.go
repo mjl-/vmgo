@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin dragonfly freebsd js,wasm linux nacl netbsd solaris
-
 package os
 
 import (
@@ -12,7 +10,10 @@ import (
 	"io"
 	"runtime"
 	"syscall"
+	"errors"
 )
+
+var errFS = errors.New("almost no file system")
 
 // fixLongPath is a noop on non-Windows platforms.
 func fixLongPath(path string) string {
@@ -20,26 +21,7 @@ func fixLongPath(path string) string {
 }
 
 func rename(oldname, newname string) error {
-	fi, err := Lstat(newname)
-	if err == nil && fi.IsDir() {
-		// There are two independent errors this function can return:
-		// one for a bad oldname, and one for a bad newname.
-		// At this point we've determined the newname is bad.
-		// But just in case oldname is also bad, prioritize returning
-		// the oldname error because that's what we did historically.
-		if _, err := Lstat(oldname); err != nil {
-			if pe, ok := err.(*PathError); ok {
-				err = pe.Err
-			}
-			return &LinkError{"rename", oldname, newname, err}
-		}
-		return &LinkError{"rename", oldname, newname, syscall.EEXIST}
-	}
-	err = syscall.Rename(oldname, newname)
-	if err != nil {
-		return &LinkError{"rename", oldname, newname, err}
-	}
-	return nil
+	return errFS
 }
 
 // file is the real representation of *File.
@@ -53,6 +35,24 @@ type file struct {
 	nonblock    bool     // whether we set nonblocking mode
 	stdoutOrErr bool     // whether this is stdout or stderr
 	appendMode  bool     // whether file is opened for appending
+
+	// if set, this is a builtin static file.
+	fake	*fakeFile
+}
+
+var printOpen = false
+
+func PrintOpen(v bool) {
+	printOpen = v
+}
+
+type fakeFile struct {
+	Path string
+	Offset int64
+}
+
+func (f *File) isFake() bool {
+	return f.fake != nil
 }
 
 // Fd returns the integer Unix file descriptor referencing the open file.
@@ -60,6 +60,10 @@ type file struct {
 // On Unix systems this will cause the SetDeadline methods to stop working.
 func (f *File) Fd() uintptr {
 	if f == nil {
+		return ^(uintptr(0))
+	}
+
+	if f.isFake() {
 		return ^(uintptr(0))
 	}
 
@@ -183,43 +187,28 @@ const DevNull = "/dev/null"
 // openFileNolog is the Unix implementation of OpenFile.
 // Changes here should be reflected in openFdAt, if relevant.
 func openFileNolog(name string, flag int, perm FileMode) (*File, error) {
-	setSticky := false
-	if !supportsCreateWithStickyBit && flag&O_CREATE != 0 && perm&ModeSticky != 0 {
-		if _, err := Stat(name); IsNotExist(err) {
-			setSticky = true
-		}
+	if flag != O_RDONLY {
+		return nil, errFS
 	}
 
-	var r int
-	for {
-		var e error
-		r, e = syscall.Open(name, flag|syscall.O_CLOEXEC, syscallMode(perm))
-		if e == nil {
-			break
-		}
-
-		// On OS X, sigaction(2) doesn't guarantee that SA_RESTART will cause
-		// open(2) to be restarted for regular files. This is easy to reproduce on
-		// fuse file systems (see https://golang.org/issue/11180).
-		if runtime.GOOS == "darwin" && e == syscall.EINTR {
-			continue
-		}
-
-		return nil, &PathError{"open", name, e}
+	if printOpen {
+		print("open: ", name, "\n")
 	}
 
-	// open(2) itself won't handle the sticky bit on *BSD and Solaris
-	if setSticky {
-		setStickyBit(name)
+	_, ok := fakeFiles[name]
+	if !ok {
+		return nil, ErrNotExist
 	}
 
-	// There's a race here with fork/exec, which we are
-	// content to live with. See ../syscall/exec_unix.go.
-	if !supportsCloseOnExec {
-		syscall.CloseOnExec(r)
+	f := &File{
+		file: &file{
+			fake: &fakeFile{
+				Path: name,
+				Offset: 0,
+			},
+		},
 	}
-
-	return newFile(uintptr(r), name, kindOpenFile), nil
+	return f, nil
 }
 
 // Close closes the File, rendering it unusable for I/O.
@@ -229,6 +218,9 @@ func openFileNolog(name string, flag int, perm FileMode) (*File, error) {
 func (f *File) Close() error {
 	if f == nil {
 		return ErrInvalid
+	}
+	if f.isFake() {
+		return nil
 	}
 	return f.file.close()
 }
@@ -256,6 +248,14 @@ func (file *file) close() error {
 // read reads up to len(b) bytes from the File.
 // It returns the number of bytes read and an error, if any.
 func (f *File) read(b []byte) (n int, err error) {
+	if f.isFake() {
+		n, err = f.pread(b, f.fake.Offset)
+		if n > 0 {
+			f.fake.Offset += int64(n)
+		}
+		return
+	}
+
 	n, err = f.pfd.Read(b)
 	runtime.KeepAlive(f)
 	return n, err
@@ -265,6 +265,25 @@ func (f *File) read(b []byte) (n int, err error) {
 // It returns the number of bytes read and the error, if any.
 // EOF is signaled by a zero count with err set to nil.
 func (f *File) pread(b []byte, off int64) (n int, err error) {
+	if f.isFake() {
+		buf := fakeFiles[f.fake.Path]
+		s := off
+		e := s + int64(len(b))
+		if e > int64(len(buf)) {
+			e = int64(len(buf))
+		}
+		if s > e {
+			s = e
+		}
+		n = int(e - s)
+		copy(b, buf[int(s):int(e)])
+		var err error
+		if n == 0 {
+			err = io.EOF
+		}
+		return n, err
+	}
+
 	n, err = f.pfd.Pread(b, off)
 	runtime.KeepAlive(f)
 	return n, err
@@ -273,6 +292,10 @@ func (f *File) pread(b []byte, off int64) (n int, err error) {
 // write writes len(b) bytes to the File.
 // It returns the number of bytes written and an error, if any.
 func (f *File) write(b []byte) (n int, err error) {
+	if f.isFake() {
+		return 0, syscall.ENOSYS
+	}
+
 	n, err = f.pfd.Write(b)
 	runtime.KeepAlive(f)
 	return n, err
@@ -281,6 +304,10 @@ func (f *File) write(b []byte) (n int, err error) {
 // pwrite writes len(b) bytes to the File starting at byte offset off.
 // It returns the number of bytes written and an error, if any.
 func (f *File) pwrite(b []byte, off int64) (n int, err error) {
+	if f.isFake() {
+		return 0, syscall.ENOSYS
+	}
+
 	n, err = f.pfd.Pwrite(b, off)
 	runtime.KeepAlive(f)
 	return n, err
@@ -291,6 +318,18 @@ func (f *File) pwrite(b []byte, off int64) (n int, err error) {
 // relative to the current offset, and 2 means relative to the end.
 // It returns the new offset and an error, if any.
 func (f *File) seek(offset int64, whence int) (ret int64, err error) {
+	if f.isFake() {
+		if whence == 0 {
+			f.fake.Offset = offset
+		} else if whence == 1 {
+			f.fake.Offset = f.fake.Offset + offset
+		} else {
+			buf := fakeFiles[f.fake.Path]
+			f.fake.Offset = int64(len(buf)) + offset
+		}
+		return f.fake.Offset, nil
+	}
+
 	ret, err = f.pfd.Seek(offset, whence)
 	runtime.KeepAlive(f)
 	return ret, err
@@ -300,117 +339,37 @@ func (f *File) seek(offset int64, whence int) (ret int64, err error) {
 // If the file is a symbolic link, it changes the size of the link's target.
 // If there is an error, it will be of type *PathError.
 func Truncate(name string, size int64) error {
-	if e := syscall.Truncate(name, size); e != nil {
-		return &PathError{"truncate", name, e}
-	}
-	return nil
+	return syscall.ENOSYS
 }
 
 // Remove removes the named file or (empty) directory.
 // If there is an error, it will be of type *PathError.
 func Remove(name string) error {
-	// System call interface forces us to know
-	// whether name is a file or directory.
-	// Try both: it is cheaper on average than
-	// doing a Stat plus the right one.
-	e := syscall.Unlink(name)
-	if e == nil {
-		return nil
-	}
-	e1 := syscall.Rmdir(name)
-	if e1 == nil {
-		return nil
-	}
-
-	// Both failed: figure out which error to return.
-	// OS X and Linux differ on whether unlink(dir)
-	// returns EISDIR, so can't use that. However,
-	// both agree that rmdir(file) returns ENOTDIR,
-	// so we can use that to decide which error is real.
-	// Rmdir might also return ENOTDIR if given a bad
-	// file path, like /etc/passwd/foo, but in that case,
-	// both errors will be ENOTDIR, so it's okay to
-	// use the error from unlink.
-	if e1 != syscall.ENOTDIR {
-		e = e1
-	}
-	return &PathError{"remove", name, e}
+	return syscall.ENOSYS
 }
 
 func tempDir() string {
-	dir := Getenv("TMPDIR")
-	if dir == "" {
-		if runtime.GOOS == "android" {
-			dir = "/data/local/tmp"
-		} else {
-			dir = "/tmp"
-		}
-	}
-	return dir
+	return "/"
 }
 
 // Link creates newname as a hard link to the oldname file.
 // If there is an error, it will be of type *LinkError.
 func Link(oldname, newname string) error {
-	e := syscall.Link(oldname, newname)
-	if e != nil {
-		return &LinkError{"link", oldname, newname, e}
-	}
-	return nil
+	return syscall.ENOSYS
 }
 
 // Symlink creates newname as a symbolic link to oldname.
 // If there is an error, it will be of type *LinkError.
 func Symlink(oldname, newname string) error {
-	e := syscall.Symlink(oldname, newname)
-	if e != nil {
-		return &LinkError{"symlink", oldname, newname, e}
-	}
-	return nil
+	return syscall.ENOSYS
 }
 
 func (f *File) readdir(n int) (fi []FileInfo, err error) {
-	dirname := f.name
-	if dirname == "" {
-		dirname = "."
-	}
-	names, err := f.Readdirnames(n)
-	fi = make([]FileInfo, 0, len(names))
-	for _, filename := range names {
-		fip, lerr := lstat(dirname + "/" + filename)
-		if IsNotExist(lerr) {
-			// File disappeared between readdir + stat.
-			// Just treat it as if it didn't exist.
-			continue
-		}
-		if lerr != nil {
-			return fi, lerr
-		}
-		fi = append(fi, fip)
-	}
-	if len(fi) == 0 && err == nil && n > 0 {
-		// Per File.Readdir, the slice must be non-empty or err
-		// must be non-nil if n > 0.
-		err = io.EOF
-	}
-	return fi, err
+	return nil, syscall.ENOSYS
 }
 
 // Readlink returns the destination of the named symbolic link.
 // If there is an error, it will be of type *PathError.
 func Readlink(name string) (string, error) {
-	for len := 128; ; len *= 2 {
-		b := make([]byte, len)
-		n, e := fixCount(syscall.Readlink(name, b))
-		// buffer too small
-		if runtime.GOOS == "aix" && e == syscall.ERANGE {
-			continue
-		}
-		if e != nil {
-			return "", &PathError{"readlink", name, e}
-		}
-		if n < len {
-			return string(b[0:n]), nil
-		}
-	}
+	return "", syscall.ENOSYS
 }
