@@ -1513,7 +1513,7 @@ var cgoEnabled = map[string]bool{
 	"netbsd/arm":      true,
 	"netbsd/arm64":    true,
 	"openbsd/386":     true,
-	"openbsd/amd64":   true,
+	"openbsd/amd64":   false,
 	"openbsd/arm":     true,
 	"openbsd/arm64":   true,
 	"plan9/386":       false,

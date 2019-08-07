@@ -81,7 +81,6 @@ var contexts = []*build.Context{
 	{GOOS: "netbsd", GOARCH: "arm64"},
 	{GOOS: "openbsd", GOARCH: "386", CgoEnabled: true},
 	{GOOS: "openbsd", GOARCH: "386"},
-	{GOOS: "openbsd", GOARCH: "amd64", CgoEnabled: true},
 	{GOOS: "openbsd", GOARCH: "amd64"},
 }
 
