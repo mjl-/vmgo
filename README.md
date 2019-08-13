@@ -28,11 +28,11 @@ The initial target is solo5.
 
 (this list is probably incomplete)
 
-- many "syscall" functions return ENOTSUP
-- file system-related typically return errors. os.Open() only works on files that were added with the new os.AddFile(path, data), for adding /etc/resolv.conf, /etc/ssl/cert.pem, etc.  os.PrintOpen(bool) toggles printing opens, for debugging.
-- getentropy() is used during runtime init, not /dev/urandom (crypto/rand already uses getentropy)
-- no cgo, probably necessary anyway, but also gets rid of one more variable.
-- added time.SetTimezoneDB to set fake contents for GOROOT+lib/time/zoneinfo.zip. For now, timezone config can be done through TZ, eg TZ=Europe/Amsterdam. Should perhaps just add always include the zip file in the time package.
+	- many "syscall" functions return ENOTSUP
+	- file system-related typically return errors. os.Open() only works on files that were added with the new os.AddFile(path, data), for adding /etc/resolv.conf, /etc/ssl/cert.pem, etc.  os.PrintOpen(bool) toggles printing opens, for debugging.
+	- getentropy() is used during runtime init, not /dev/urandom (crypto/rand already uses getentropy)
+	- no cgo, probably necessary anyway, but also gets rid of one more variable.
+	- added time.SetTimezoneDB to set fake contents for GOROOT+lib/time/zoneinfo.zip. For now, timezone config can be done through TZ, eg TZ=Europe/Amsterdam. Should perhaps just add always include the zip file in the time package.
 
 ## file access
 
@@ -48,14 +48,14 @@ The runtime does surprisingly few file opens. These might be opened on openbsd, 
 
 ## todo
 
-- add a "net" backend that talks to a tun device (as a file descriptor for now).
-- remove process creation from the runtime for the openbsd arch. take a hint from wasm, which is single process.
-- some way to pass & parse variables when there are no more regular env vars.
-- remove more system calls. see how setting TLS for "g" can be stripped.
-- adjust to target solo5 (or something else by that time).
+	- add a "net" backend that talks to a tun device (as a file descriptor for now).
+	- remove process creation from the runtime for the openbsd arch. take a hint from wasm, which is single process.
+	- some way to pass & parse variables when there are no more regular env vars.
+	- remove more system calls. see how setting TLS for "g" can be stripped.
+	- adjust to target solo5 (or something else by that time).
 
-- restore API check during toolchain build.
-- don't target "openbsd", but add a new arch.
+	- restore API check during toolchain build.
+	- don't target "openbsd", but add a new arch.
 
 
 (original Go README below)
