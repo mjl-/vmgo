@@ -29,11 +29,11 @@ func fakeStat(path string) (FileInfo, error) {
 		return nil, ErrNotExist
 	}
 	st := &fileStat{
-		name: path,
-		size: int64(len(buf)),
-		mode: 0,
+		name:    path,
+		size:    int64(len(buf)),
+		mode:    0,
 		modTime: zeroTime,
-		sys: syscall.Stat_t{},
+		sys:     syscall.Stat_t{},
 	}
 	return st, nil
 }

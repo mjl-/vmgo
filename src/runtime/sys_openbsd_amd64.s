@@ -378,3 +378,25 @@ TEXT runtime·getentropy(SB),NOSPLIT,$0
 	NEGQ	AX
 	MOVL	AX, ret+16(FP)
 	RET
+
+// int32 pledge(const char *promises, const char *execpromises)
+TEXT runtime·pledge(SB),NOSPLIT,$0
+	MOVQ	promises+0(FP), DI
+	MOVQ	execpromises+8(FP), SI
+	MOVL	$108, AX
+	SYSCALL
+	JCC	2(PC)
+	NEGQ	AX
+	MOVL	AX, ret+16(FP)
+	RET
+
+// int32 unveil(const char *path, const char *permissions)
+TEXT runtime·unveil(SB),NOSPLIT,$0
+	MOVQ	path+0(FP), DI
+	MOVQ	permissions+8(FP), SI
+	MOVL	$114, AX
+	SYSCALL
+	JCC	2(PC)
+	NEGQ	AX
+	MOVL	AX, ret+16(FP)
+	RET

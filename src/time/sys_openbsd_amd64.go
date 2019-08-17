@@ -9,8 +9,8 @@ package time
 import (
 	"errors"
 	"runtime"
-	"syscall"
 	"sync"
+	"syscall"
 )
 
 var timezoneZipData = []byte{}
@@ -23,17 +23,18 @@ func interrupt() {
 type openFile struct {
 	offset int
 }
+
 var openFiles = struct {
 	sync.Mutex
-	fds map[uintptr]*openFile
+	fds    map[uintptr]*openFile
 	nextFD uintptr
-} {
-	fds: map[uintptr]*openFile{},
+}{
+	fds:    map[uintptr]*openFile{},
 	nextFD: 1,
 }
 
 func open(name string) (uintptr, error) {
-	if name != runtime.GOROOT() + "/lib/time/zoneinfo.zip" {
+	if name != runtime.GOROOT()+"/lib/time/zoneinfo.zip" {
 		return 0, syscall.ENOENT
 	}
 	openFiles.Lock()
@@ -95,7 +96,7 @@ func readoff(f *openFile, buf []byte, s int) int {
 		s = e
 	}
 	copy(buf, timezoneZipData[int(s):int(e)])
-	return int(e-s)
+	return int(e - s)
 }
 
 // SetTimezoneDB sets the contents of a timezone zip file that is used to fullfil reads for GOROOT/lib/time/zoneinfo.zip.

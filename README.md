@@ -18,18 +18,19 @@ access to files. The changes apply to openbsd/amd64, with
 cross-compilation (self-hosting won't work without files).
 
 Lots of functionality has to be stripped down, or replaced with a
-builtin implementation, because there is no OS to provide the
-functionality. Files. Network stack. Processes, signals. Most
-remaining system calls.
+builtin implementation, because there is will be no OS to provide
+the functionality in the future. Files. Network stack. Processes,
+signals. Most remaining system calls.
 
-The initial target is solo5.
 
 ## changes
 
 (this list is probably incomplete)
 
 	- many "syscall" functions return ENOTSUP
-	- file system-related typically return errors. os.Open() only works on files that were added with the new os.AddFile(path, data), for adding /etc/resolv.conf, /etc/ssl/cert.pem, etc.  os.PrintOpen(bool) toggles printing opens, for debugging.
+	- file system-related syscalls typically return errors. os.Open() only works on files that were added with the new os.AddFile(path, data), for adding /etc/resolv.conf, /etc/ssl/cert.pem, etc.  os.PrintOpen(bool) toggles printing opens, for debugging.
+	- network-related syscalls return errors. net is replaced with a (WIP) netstack-backed version that uses the tun/tap device on fd 3.
+	- during runtime init, we pledge to "stdio unveil" and unveil nothing.
 	- getentropy() is used during runtime init, not /dev/urandom (crypto/rand already uses getentropy)
 	- no cgo, probably necessary anyway, but also gets rid of one more variable.
 	- added time.SetTimezoneDB to set fake contents for GOROOT+lib/time/zoneinfo.zip. For now, timezone config can be done through TZ, eg TZ=Europe/Amsterdam. Should perhaps just add always include the zip file in the time package.
@@ -48,7 +49,7 @@ The runtime does surprisingly few file opens. These might be opened on openbsd, 
 
 ## todo
 
-	- add a "net" backend that talks to a tun device (as a file descriptor for now).
+	- change the go compiler to include files from a dir as fs tree to use for os.Open.
 	- remove process creation from the runtime for the openbsd arch. take a hint from wasm, which is single process.
 	- some way to pass & parse variables when there are no more regular env vars.
 	- remove more system calls. see how setting TLS for "g" can be stripped.

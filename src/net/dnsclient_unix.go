@@ -44,6 +44,8 @@ var (
 	// that when it gets translated to a DNSError, the IsTemporary field
 	// gets set to true.
 	errServerTemporarlyMisbehaving = errors.New("server misbehaving")
+
+	errNoNS = errors.New("no nameservers configured")
 )
 
 func newRequest(q dnsmessage.Question) (id uint16, udpReq, tcpReq []byte, err error) {
@@ -247,6 +249,10 @@ func (r *Resolver) tryOneName(ctx context.Context, cfg *dnsConfig, name string, 
 		Name:  n,
 		Type:  qtype,
 		Class: dnsmessage.ClassINET,
+	}
+
+	if len(cfg.servers) == 0 {
+		return dnsmessage.Parser{}, "", errNoNS
 	}
 
 	for i := 0; i < cfg.attempts; i++ {
@@ -578,6 +584,7 @@ func (r *Resolver) goLookupIPCNAMEOrder(ctx context.Context, name string, order 
 	resolvConf.mu.RLock()
 	conf := resolvConf.dnsConfig
 	resolvConf.mu.RUnlock()
+
 	type result struct {
 		p      dnsmessage.Parser
 		server string

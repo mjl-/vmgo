@@ -5,12 +5,12 @@
 package os
 
 import (
+	"errors"
 	"internal/poll"
 	"internal/syscall/unix"
 	"io"
 	"runtime"
 	"syscall"
-	"errors"
 )
 
 var errFS = errors.New("almost no file system")
@@ -37,7 +37,7 @@ type file struct {
 	appendMode  bool     // whether file is opened for appending
 
 	// if set, this is a builtin static file.
-	fake	*fakeFile
+	fake *fakeFile
 }
 
 var printOpen = false
@@ -47,7 +47,7 @@ func PrintOpen(v bool) {
 }
 
 type fakeFile struct {
-	Path string
+	Path   string
 	Offset int64
 }
 
@@ -203,7 +203,7 @@ func openFileNolog(name string, flag int, perm FileMode) (*File, error) {
 	f := &File{
 		file: &file{
 			fake: &fakeFile{
-				Path: name,
+				Path:   name,
 				Offset: 0,
 			},
 		},

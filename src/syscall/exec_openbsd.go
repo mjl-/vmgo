@@ -13,7 +13,7 @@ type SysProcAttr struct {
 
 var ForkLock sync.RWMutex // called by internal/poll, leaving this for now
 
-func CloseOnExec(fd int) { }
+func CloseOnExec(fd int) {}
 
 func SetNonblock(fd int, nonblocking bool) (err error) {
 	flag, err := fcntl(fd, F_GETFL, 0)
@@ -38,7 +38,6 @@ type Credential struct {
 // by StartProcess.
 type ProcAttr struct {
 }
-
 
 // Combination of fork and exec, careful to be thread safe.
 func ForkExec(argv0 string, argv []string, attr *ProcAttr) (pid int, err error) {

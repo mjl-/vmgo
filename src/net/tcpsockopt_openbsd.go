@@ -14,3 +14,7 @@ func setKeepAlivePeriod(fd *netFD, d time.Duration) error {
 	// options.
 	return syscall.ENOPROTOOPT
 }
+
+func setNoDelay(fd *netFD, noDelay bool) error {
+	return notyet("setNoDelay")
+}

@@ -208,12 +208,25 @@ func newosproc(mp *m) {
 	}
 }
 
+func pledge(promises, execpromises uintptr) int32
+func unveil(path, permissions uintptr) int32
+
 func osinit() {
 	ncpu = getncpu()
 	physPageSize = getPageSize()
 	haveMapStack = getOSRev() >= 201805 // OpenBSD 6.3
-}
 
+	promises := []byte("stdio unveil\000")
+	none := []byte("\000")
+	if pledge(uintptr(unsafe.Pointer(&promises[0])), uintptr(unsafe.Pointer(&none[0]))) != 0 {
+		panic("pledge")
+	}
+
+	nilptr := uintptr(0)
+	if unveil(nilptr, nilptr) != 0 {
+		panic("unveil")
+	}
+}
 
 func getentropy(buf uintptr, buflen int64) int32
 
