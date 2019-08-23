@@ -87,7 +87,7 @@ func ResolveUDPAddr(network, address string) (*UDPAddr, error) {
 // UDPConn is the implementation of the Conn and PacketConn interfaces
 // for UDP network connections.
 type UDPConn struct {
-	nsconn     *gonetPacketConn
+	nsconn *gonetPacketConn
 }
 
 func (c *UDPConn) Close() error {

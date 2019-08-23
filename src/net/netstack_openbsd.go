@@ -223,9 +223,9 @@ func init() {
 
 	parseRoute := func(args [][2]string) {
 		var (
-			nic    tcpip.NICID
-			ipnet  *IPNet
-			gw     IP
+			nic   tcpip.NICID
+			ipnet *IPNet
+			gw    IP
 		)
 		for _, p := range args {
 			k, v := p[0], p[1]
