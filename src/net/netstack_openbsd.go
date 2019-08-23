@@ -226,7 +226,6 @@ func init() {
 			nic    tcpip.NICID
 			ipnet  *IPNet
 			gw     IP
-			haveGW bool
 		)
 		for _, p := range args {
 			k, v := p[0], p[1]
@@ -239,7 +238,7 @@ func init() {
 				}
 			case "gw":
 				if v == "" {
-					haveGW = true
+					gw = nil
 					continue
 				}
 				gw = ParseIP(v)
@@ -264,9 +263,6 @@ func init() {
 		}
 		if ipnet == nil {
 			fail("missing ipnet in route statement")
-		}
-		if gw == nil && !haveGW {
-			fail("missing gw in route statement")
 		}
 		if _, ok := nics[nic]; !ok {
 			fail("unknown nic %v, define nic before using", nic)
