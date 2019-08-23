@@ -4,18 +4,20 @@
 
 package net
 
+import "syscall"
+
 type rawConn struct{}
 
-func newRawConn(fd *netFD) (*rawConn, error)        { return nil, notyet("newRawConn") }
+func newRawConn(fd *netFD) (*rawConn, error)        { return nil, syscall.ENOSYS }
 func (c *rawConn) ok() bool                         { return false }
-func (c *rawConn) Control(f func(uintptr)) error    { return notyet("rawConn.Control") }
-func (c *rawConn) Read(f func(uintptr) bool) error  { return notyet("rawConn.Read") }
-func (c *rawConn) Write(f func(uintptr) bool) error { return notyet("rawConn.Write") }
+func (c *rawConn) Control(f func(uintptr)) error    { return syscall.ENOSYS }
+func (c *rawConn) Read(f func(uintptr) bool) error  { return syscall.ENOSYS }
+func (c *rawConn) Write(f func(uintptr) bool) error { return syscall.ENOSYS }
 
 type rawListener struct {
 	rawConn
 }
 
-func newRawListener(fd *netFD) (*rawListener, error)  { return nil, notyet("newRawListener") }
-func (l *rawListener) Read(func(uintptr) bool) error  { return notyet("rawListener.Read") }
-func (l *rawListener) Write(func(uintptr) bool) error { return notyet("rawListener.Write") }
+func newRawListener(fd *netFD) (*rawListener, error)  { return nil, syscall.ENOSYS }
+func (l *rawListener) Read(func(uintptr) bool) error  { return syscall.ENOSYS }
+func (l *rawListener) Write(func(uintptr) bool) error { return syscall.ENOSYS }
