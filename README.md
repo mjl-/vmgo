@@ -47,6 +47,27 @@ The runtime does surprisingly few file opens. These might be opened on openbsd, 
 	- /etc/user, /etc/group, in lookupGroup, lookupUser, in src/os/user/lookup_unix.go
 	- /dev/log, /var/run/syslog, /var/run/log in src/log/syslog/syslog_unix.go, net.Dial with unix or unixgram as parameter.
 
+## netstack
+
+Seems to work (ipv6 addresses can also be configured):
+
+	export GONET='verbose; nic id=1 ether=fe:e1:ba:d0:11:11 mtu=1500 fd=3 sniff=true; ip nic=1 addr=192.168.178.3; route nic=1 ipnet=192.168.178.0/24; route nic=1 ipnet=0.0.0.0/0 gw=192.168.178.1; dns ip=192.168.178.1'
+	./withtuntap /dev/tap0 ./webapp -addr :80
+
+Withtuntap opens the tap device on fd 3, then execs ./webapp. Make sure you don't use an existing ethernet address configured on the tap device.
+
+Next steps:
+
+	- make a clean branch "netstack" that uses buildtag "netstack" to build "net" with netstack instead of regular OS network support. linux first.
+	- add ipraw support
+	- add udp multicast support
+	- improve handling of "tcp4" vs "tcp6" (udp as well)
+	- add support for setting correct ipmask for addresses of an interface
+	- ipv6 zones/interfaces in addresses
+	- return right kind of errors, eg OpError
+	- improve support for context. needs support in netstacks gonet, in NewListener and DialUDP (not sure how useful).
+	- maybe try to add support for SO_LINGER?
+
 ## todo
 
 	- change the go compiler to include files from a dir as fs tree to use for os.Open.
