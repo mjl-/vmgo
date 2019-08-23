@@ -6,6 +6,8 @@ github.com/mjl-/netstack v0.0.0-20190817132008-c325ac44b876 h1:O6uwNmMacl97bn++v
 github.com/mjl-/netstack v0.0.0-20190817132008-c325ac44b876/go.mod h1:CPCM5HMIJL1Px2P5WCTnWA1DP22znYYs0KPGERffKOA=
 github.com/mjl-/netstack v0.0.0-20190823075731-4fe1b2e2b058 h1:+rCXSMlCUBAhV30DA3vjGMjft7Bk5bVjT+WijI8QvX8=
 github.com/mjl-/netstack v0.0.0-20190823075731-4fe1b2e2b058/go.mod h1:CPCM5HMIJL1Px2P5WCTnWA1DP22znYYs0KPGERffKOA=
+github.com/mjl-/netstack v0.0.0-20190823123829-92d57aa60fe3 h1:6eIR1MJyxevd8Jmg+SGzOlVQ2WDRGrpd88cilNY6XGQ=
+github.com/mjl-/netstack v0.0.0-20190823123829-92d57aa60fe3/go.mod h1:CPCM5HMIJL1Px2P5WCTnWA1DP22znYYs0KPGERffKOA=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8 h1:1wopBVtVdWnn03fZelqdXTqk7U7zPQCb+T4rbU9ZEoU=
 golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=

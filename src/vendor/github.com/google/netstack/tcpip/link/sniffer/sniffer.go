@@ -280,7 +280,7 @@ func logPacket(prefix string, protocol tcpip.NetworkProtocolNumber, b buffer.Vie
 		)
 		return
 	default:
-		log.Printf("%s unknown network protocol", prefix)
+		log.Printf("%s unknown protocol/length %04x", prefix, protocol)
 		return
 	}
 
