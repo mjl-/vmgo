@@ -271,9 +271,12 @@ func init() {
 		if _, ok := nics[nic]; !ok {
 			fail("unknown nic %v, define nic before using", nic)
 		}
+		subnet, err := tcpip.NewSubnet(tcpip.Address(ipnet.IP), tcpip.AddressMask(ipnet.Mask))
+		if err != nil {
+			fail("bad subnet %s: %v", ipnet, err)
+		}
 		route := tcpip.Route{
-			Destination: tcpip.Address(ipnet.IP),
-			Mask:        tcpip.AddressMask(ipnet.Mask),
+			Destination: subnet,
 			Gateway:     tcpip.Address(gw),
 			NIC:         nic,
 		}

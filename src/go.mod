@@ -9,6 +9,6 @@ require (
 	golang.org/x/text v0.3.2 // indirect
 )
 
-replace github.com/google/netstack => github.com/mjl-/netstack v0.0.0-20190817112512-6d8c3aab6e8d
+replace github.com/google/netstack => github.com/mjl-/netstack v0.0.0-20190823075731-4fe1b2e2b058
 
 // replace github.com/google/netstack => ../../netstack

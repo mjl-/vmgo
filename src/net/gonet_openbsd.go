@@ -33,18 +33,8 @@ import (
 )
 
 var (
-	// errCanceled   = errors.New("operation canceled")
 	errWouldBlock = errors.New("operation would block")
 )
-
-/*
-// timeoutError is how the net package reports timeouts.
-type timeoutError struct{}
-
-func (e *timeoutError) Error() string   { return "i/o timeout" }
-func (e *timeoutError) Timeout() bool   { return true }
-func (e *timeoutError) Temporary() bool { return true }
-*/
 
 // A gonetListener is a wrapper around a tcpip endpoint that implements
 // net.Listener.
@@ -231,7 +221,7 @@ type gonetConn struct {
 	read buffer.View
 }
 
-// NewConn creates a new Conn.
+// gonetNewConn creates a new Conn.
 func gonetNewConn(wq *waiter.Queue, ep tcpip.Endpoint) *gonetConn {
 	c := &gonetConn{
 		wq: wq,
@@ -407,7 +397,7 @@ func (c *gonetConn) Write(b []byte) (int, error) {
 			}
 		}
 
-		var n uintptr
+		var n int64
 		var resCh <-chan struct{}
 		n, resCh, err = c.ep.Write(tcpip.SlicePayload(v), tcpip.WriteOptions{})
 		nbytes += int(n)
@@ -497,12 +487,12 @@ func fullToUDPAddr(addr tcpip.FullAddress) *UDPAddr {
 	return &UDPAddr{IP: IP(addr.Addr), Port: int(addr.Port)}
 }
 
-// DialTCP creates a new TCP Conn connected to the specified address.
+// gonetDialTCP creates a new TCP Conn connected to the specified address.
 func gonetDialTCP(s *stack.Stack, addr tcpip.FullAddress, network tcpip.NetworkProtocolNumber) (*gonetConn, error) {
 	return gonetDialContextTCP(context.Background(), s, addr, network)
 }
 
-// DialContextTCP creates a new TCP Conn connected to the specified address
+// gonetDialContextTCP creates a new TCP Conn connected to the specified address
 // with the option of adding cancellation and timeouts.
 func gonetDialContextTCP(ctx context.Context, s *stack.Stack, addr tcpip.FullAddress, network tcpip.NetworkProtocolNumber) (*gonetConn, error) {
 	// Create TCP endpoint, then connect.
@@ -559,32 +549,50 @@ type gonetPacketConn struct {
 	wq    *waiter.Queue
 }
 
-// NewPacketConn creates a new PacketConn.
-func gonetNewPacketConn(s *stack.Stack, addr tcpip.FullAddress, network tcpip.NetworkProtocolNumber) (*gonetPacketConn, error) {
-	// Create UDP endpoint and bind it.
+// gonetDialUDP creates a new PacketConn.
+//
+// If laddr is nil, a local address is automatically chosen.
+//
+// If raddr is nil, the PacketConn is left unconnected.
+func gonetDialUDP(s *stack.Stack, laddr, raddr *tcpip.FullAddress, network tcpip.NetworkProtocolNumber) (*gonetPacketConn, error) {
 	var wq waiter.Queue
 	ep, err := s.NewEndpoint(udp.ProtocolNumber, network, &wq)
 	if err != nil {
 		return nil, errors.New(err.String())
 	}
 
-	if err := ep.Bind(addr); err != nil {
-		ep.Close()
-		return nil, &OpError{
-			Op:   "bind",
-			Net:  "udp",
-			Addr: fullToUDPAddr(addr),
-			Err:  errors.New(err.String()),
+	if laddr != nil {
+		if err := ep.Bind(*laddr); err != nil {
+			ep.Close()
+			return nil, &OpError{
+				Op:   "bind",
+				Net:  "udp",
+				Addr: fullToUDPAddr(*laddr),
+				Err:  errors.New(err.String()),
+			}
 		}
 	}
 
-	c := &gonetPacketConn{
+	c := gonetPacketConn{
 		stack: s,
 		ep:    ep,
 		wq:    &wq,
 	}
 	c.deadlineTimer.init()
-	return c, nil
+
+	if raddr != nil {
+		if err := c.ep.Connect(*raddr); err != nil {
+			c.ep.Close()
+			return nil, &OpError{
+				Op:   "connect",
+				Net:  "udp",
+				Addr: fullToUDPAddr(*raddr),
+				Err:  errors.New(err.String()),
+			}
+		}
+	}
+
+	return &c, nil
 }
 
 func (c *gonetPacketConn) newOpError(op string, err error) *OpError {

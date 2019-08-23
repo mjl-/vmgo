@@ -6,7 +6,6 @@ package net
 
 import (
 	"context"
-	"errors"
 	"os"
 	"syscall"
 	"time"
@@ -89,7 +88,6 @@ func ResolveUDPAddr(network, address string) (*UDPAddr, error) {
 // for UDP network connections.
 type UDPConn struct {
 	nsconn     *gonetPacketConn
-	remoteAddr *UDPAddr
 }
 
 func (c *UDPConn) Close() error {
@@ -156,10 +154,7 @@ func (c *UDPConn) SyscallConn() (syscall.RawConn, error) {
 }
 
 func (c *UDPConn) Write(b []byte) (int, error) {
-	if c.remoteAddr == nil {
-		return 0, errors.New("no remote address configured")
-	}
-	return c.nsconn.WriteTo(b, c.remoteAddr)
+	return c.nsconn.Write(b)
 }
 
 func (c *UDPConn) WriteMsgUDP(b, oob []byte, addr *UDPAddr) (n, oobn int, err error) {
@@ -198,6 +193,23 @@ func (c *UDPConn) SetWriteDeadline(t time.Time) error {
 	return c.nsconn.SetWriteDeadline(t)
 }
 
+func udpAddrToFull(a *UDPAddr) *tcpip.FullAddress {
+	if a == nil {
+		return nil
+	}
+	fa := &tcpip.FullAddress{
+		Port: uint16(a.Port),
+	}
+	if a.IP != nil {
+		if a.IP.To4() != nil {
+			fa.Addr = tcpip.Address(a.IP.To4())
+		} else {
+			fa.Addr = tcpip.Address(a.IP)
+		}
+	}
+	return fa
+}
+
 // DialUDP acts like Dial for UDP networks.
 //
 // The network must be a UDP network name; see func Dial for details.
@@ -211,9 +223,7 @@ func DialUDP(network string, laddr, raddr *UDPAddr) (*UDPConn, error) {
 	}
 
 	switch network {
-	case "udp", "udp4":
-	case "udp6":
-		return nil, syscall.ENOTSUP // todo: implement ipv6
+	case "udp", "udp4", "udp6":
 	default:
 		return nil, &OpError{Op: "dial", Net: network, Source: laddr.opAddr(), Addr: raddr.opAddr(), Err: UnknownNetworkError(network)}
 	}
@@ -221,15 +231,13 @@ func DialUDP(network string, laddr, raddr *UDPAddr) (*UDPConn, error) {
 		return nil, &OpError{Op: "dial", Net: network, Source: laddr.opAddr(), Addr: nil, Err: errMissingAddress}
 	}
 
-	rnsaddr := tcpip.FullAddress{
-		Port: uint16(raddr.Port),
-		// Addr, setting it doesn't work?
-	}
-	c, err := gonetNewPacketConn(netstack, rnsaddr, ipv4.ProtocolNumber)
+	lnsaddr := udpAddrToFull(laddr)
+	rnsaddr := udpAddrToFull(raddr)
+	c, err := gonetDialUDP(netstack, lnsaddr, rnsaddr, ipv4.ProtocolNumber)
 	if err != nil {
 		return nil, err
 	}
-	uc := &UDPConn{c, raddr}
+	uc := &UDPConn{c}
 	return uc, nil
 }
 
@@ -248,24 +256,19 @@ func ListenUDP(network string, laddr *UDPAddr) (*UDPConn, error) {
 	}
 
 	switch network {
-	case "udp", "udp4":
-	case "udp6":
-		return nil, syscall.ENOTSUP
+	case "udp", "udp4", "udp6":
 	default:
 		return nil, &OpError{Op: "listen", Net: network, Source: nil, Addr: laddr.opAddr(), Err: UnknownNetworkError(network)}
 	}
 	if laddr == nil {
 		laddr = &UDPAddr{}
 	}
-
-	lnsaddr := tcpip.FullAddress{
-		Port: uint16(laddr.Port),
-	}
-	c, err := gonetNewPacketConn(netstack, lnsaddr, ipv4.ProtocolNumber)
+	lnsaddr := udpAddrToFull(laddr)
+	c, err := gonetDialUDP(netstack, lnsaddr, nil, ipv4.ProtocolNumber)
 	if err != nil {
 		return nil, err
 	}
-	uc := &UDPConn{c, nil}
+	uc := &UDPConn{c}
 	return uc, nil
 }
 
@@ -295,18 +298,13 @@ func (sd *sysDialer) dialUDP(ctx context.Context, laddr, raddr *UDPAddr) (*UDPCo
 		return nil, errStack
 	}
 
-	lnsaddr := tcpip.FullAddress{}
-	if laddr != nil && laddr.IP != nil {
-		lnsaddr.Addr = tcpip.Address(laddr.IP.To4())
-	}
-	if laddr != nil {
-		lnsaddr.Port = uint16(laddr.Port)
-	}
-	c, err := gonetNewPacketConn(netstack, lnsaddr, ipv4.ProtocolNumber)
+	lnsaddr := udpAddrToFull(laddr)
+	rnsaddr := udpAddrToFull(raddr)
+	c, err := gonetDialUDP(netstack, lnsaddr, rnsaddr, ipv4.ProtocolNumber)
 	if err != nil {
 		return nil, err
 	}
-	uc := &UDPConn{c, raddr}
+	uc := &UDPConn{c}
 	return uc, nil
 }
 
@@ -315,18 +313,12 @@ func (sl *sysListener) listenUDP(ctx context.Context, laddr *UDPAddr) (*UDPConn,
 		return nil, errStack
 	}
 
-	lnsaddr := tcpip.FullAddress{}
-	if laddr != nil && laddr.IP != nil {
-		lnsaddr.Addr = tcpip.Address(laddr.IP.To4())
-	}
-	if laddr != nil {
-		lnsaddr.Port = uint16(laddr.Port)
-	}
-	c, err := gonetNewPacketConn(netstack, lnsaddr, ipv4.ProtocolNumber)
+	lnsaddr := udpAddrToFull(laddr)
+	c, err := gonetDialUDP(netstack, lnsaddr, nil, ipv4.ProtocolNumber)
 	if err != nil {
 		return nil, err
 	}
-	uc := &UDPConn{c, nil}
+	uc := &UDPConn{c}
 	return uc, nil
 }
 

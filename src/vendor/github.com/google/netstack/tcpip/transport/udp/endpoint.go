@@ -249,6 +249,11 @@ func (e *endpoint) prepareForWrite(to *tcpip.FullAddress) (retry bool, err *tcpi
 // specified address is a multicast address.
 func (e *endpoint) connectRoute(nicid tcpip.NICID, addr tcpip.FullAddress, netProto tcpip.NetworkProtocolNumber) (stack.Route, tcpip.NICID, *tcpip.Error) {
 	localAddr := e.id.LocalAddress
+	if isBroadcastOrMulticast(localAddr) {
+		// A packet can only originate from a unicast address (i.e., an interface).
+		localAddr = ""
+	}
+
 	if header.IsV4MulticastAddress(addr.Addr) || header.IsV6MulticastAddress(addr.Addr) {
 		if nicid == 0 {
 			nicid = e.multicastNICID
@@ -268,7 +273,7 @@ func (e *endpoint) connectRoute(nicid tcpip.NICID, addr tcpip.FullAddress, netPr
 
 // Write writes data to the endpoint's peer. This method does not block
 // if the data cannot be written.
-func (e *endpoint) Write(p tcpip.Payload, opts tcpip.WriteOptions) (uintptr, <-chan struct{}, *tcpip.Error) {
+func (e *endpoint) Write(p tcpip.Payload, opts tcpip.WriteOptions) (int64, <-chan struct{}, *tcpip.Error) {
 	// MSG_MORE is unimplemented. (This also means that MSG_EOR is a no-op.)
 	if opts.More {
 		return 0, nil, tcpip.ErrInvalidOptionValue
@@ -374,11 +379,11 @@ func (e *endpoint) Write(p tcpip.Payload, opts tcpip.WriteOptions) (uintptr, <-c
 	if err := sendUDP(route, buffer.View(v).ToVectorisedView(), e.id.LocalPort, dstPort, ttl); err != nil {
 		return 0, nil, err
 	}
-	return uintptr(len(v)), nil, nil
+	return int64(len(v)), nil, nil
 }
 
 // Peek only returns data from a single datagram, so do nothing here.
-func (e *endpoint) Peek([][]byte) (uintptr, tcpip.ControlMessages, *tcpip.Error) {
+func (e *endpoint) Peek([][]byte) (int64, tcpip.ControlMessages, *tcpip.Error) {
 	return 0, tcpip.ControlMessages{}, nil
 }
 
@@ -448,7 +453,12 @@ func (e *endpoint) SetSockOpt(opt interface{}) *tcpip.Error {
 		}
 
 		nicID := v.NIC
-		if v.InterfaceAddr == header.IPv4Any {
+
+		// The interface address is considered not-set if it is empty or contains
+		// all-zeros. The former represent the zero-value in golang, the latter the
+		// same in a setsockopt(IP_ADD_MEMBERSHIP, &ip_mreqn) syscall.
+		allZeros := header.IPv4Any
+		if len(v.InterfaceAddr) == 0 || v.InterfaceAddr == allZeros {
 			if nicID == 0 {
 				r, err := e.stack.FindRoute(0, "", v.MulticastAddr, header.IPv4ProtocolNumber, false /* multicastLoop */)
 				if err == nil {
@@ -692,7 +702,7 @@ func (e *endpoint) checkV4Mapped(addr *tcpip.FullAddress, allowMismatch bool) (t
 
 		netProto = header.IPv4ProtocolNumber
 		addr.Addr = addr.Addr[header.IPv6AddressSize-header.IPv4AddressSize:]
-		if addr.Addr == "\x00\x00\x00\x00" {
+		if addr.Addr == header.IPv4Any {
 			addr.Addr = ""
 		}
 
@@ -711,7 +721,8 @@ func (e *endpoint) checkV4Mapped(addr *tcpip.FullAddress, allowMismatch bool) (t
 	return netProto, nil
 }
 
-func (e *endpoint) disconnect() *tcpip.Error {
+// Disconnect implements tcpip.Endpoint.Disconnect.
+func (e *endpoint) Disconnect() *tcpip.Error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -749,9 +760,6 @@ func (e *endpoint) Connect(addr tcpip.FullAddress) *tcpip.Error {
 	netProto, err := e.checkV4Mapped(&addr, false)
 	if err != nil {
 		return err
-	}
-	if addr.Addr == "" {
-		return e.disconnect()
 	}
 	if addr.Port == 0 {
 		// We don't support connecting to port zero.
@@ -916,8 +924,8 @@ func (e *endpoint) bindLocked(addr tcpip.FullAddress) *tcpip.Error {
 	}
 
 	nicid := addr.NIC
-	if len(addr.Addr) != 0 {
-		// A local address was specified, verify that it's valid.
+	if len(addr.Addr) != 0 && !isBroadcastOrMulticast(addr.Addr) {
+		// A local unicast address was specified, verify that it's valid.
 		nicid = e.stack.CheckLocalAddress(addr.NIC, netProto, addr.Addr)
 		if nicid == 0 {
 			return tcpip.ErrBadLocalAddress
@@ -1065,4 +1073,8 @@ func (e *endpoint) HandleControlPacket(id stack.TransportEndpointID, typ stack.C
 func (e *endpoint) State() uint32 {
 	// TODO(b/112063468): Translate internal state to values returned by Linux.
 	return 0
+}
+
+func isBroadcastOrMulticast(a tcpip.Address) bool {
+	return a == header.IPv4Broadcast || header.IsV4MulticastAddress(a) || header.IsV6MulticastAddress(a)
 }

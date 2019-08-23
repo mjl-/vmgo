@@ -777,60 +777,95 @@ func (e *endpoint) readLocked() (buffer.View, *tcpip.Error) {
 	return v, nil
 }
 
+// isEndpointWritableLocked checks if a given endpoint is writable
+// and also returns the number of bytes that can be written at this
+// moment. If the endpoint is not writable then it returns an error
+// indicating the reason why it's not writable.
+// Caller must hold e.mu and e.sndBufMu
+func (e *endpoint) isEndpointWritableLocked() (int, *tcpip.Error) {
+	// The endpoint cannot be written to if it's not connected.
+	if !e.state.connected() {
+		switch e.state {
+		case StateError:
+			return 0, e.hardError
+		default:
+			return 0, tcpip.ErrClosedForSend
+		}
+	}
+
+	// Check if the connection has already been closed for sends.
+	if e.sndClosed {
+		return 0, tcpip.ErrClosedForSend
+	}
+
+	avail := e.sndBufSize - e.sndBufUsed
+	if avail <= 0 {
+		return 0, tcpip.ErrWouldBlock
+	}
+	return avail, nil
+}
+
 // Write writes data to the endpoint's peer.
-func (e *endpoint) Write(p tcpip.Payload, opts tcpip.WriteOptions) (uintptr, <-chan struct{}, *tcpip.Error) {
+func (e *endpoint) Write(p tcpip.Payload, opts tcpip.WriteOptions) (int64, <-chan struct{}, *tcpip.Error) {
 	// Linux completely ignores any address passed to sendto(2) for TCP sockets
 	// (without the MSG_FASTOPEN flag). Corking is unimplemented, so opts.More
 	// and opts.EndOfRecord are also ignored.
 
 	e.mu.RLock()
-	defer e.mu.RUnlock()
+	e.sndBufMu.Lock()
 
-	// The endpoint cannot be written to if it's not connected.
-	if !e.state.connected() {
-		switch e.state {
-		case StateError:
-			return 0, nil, e.hardError
-		default:
-			return 0, nil, tcpip.ErrClosedForSend
-		}
+	avail, err := e.isEndpointWritableLocked()
+	if err != nil {
+		e.sndBufMu.Unlock()
+		e.mu.RUnlock()
+		return 0, nil, err
 	}
+
+	e.sndBufMu.Unlock()
+	e.mu.RUnlock()
 
 	// Nothing to do if the buffer is empty.
 	if p.Size() == 0 {
 		return 0, nil, nil
 	}
 
-	e.sndBufMu.Lock()
-
-	// Check if the connection has already been closed for sends.
-	if e.sndClosed {
-		e.sndBufMu.Unlock()
-		return 0, nil, tcpip.ErrClosedForSend
-	}
-
-	// Check against the limit.
-	avail := e.sndBufSize - e.sndBufUsed
-	if avail <= 0 {
-		e.sndBufMu.Unlock()
-		return 0, nil, tcpip.ErrWouldBlock
-	}
-
+	// Copy in memory without holding sndBufMu so that worker goroutine can
+	// make progress independent of this operation.
 	v, perr := p.Get(avail)
 	if perr != nil {
-		e.sndBufMu.Unlock()
 		return 0, nil, perr
 	}
 
-	l := len(v)
-	s := newSegmentFromView(&e.route, e.id, v)
+	e.mu.RLock()
+	e.sndBufMu.Lock()
+
+	// Because we released the lock before copying, check state again
+	// to make sure the endpoint is still in a valid state for a
+	// write.
+	avail, err = e.isEndpointWritableLocked()
+	if err != nil {
+		e.sndBufMu.Unlock()
+		e.mu.RUnlock()
+		return 0, nil, err
+	}
+
+	// Discard any excess data copied in due to avail being reduced due to a
+	// simultaneous write call to the socket.
+	if avail < len(v) {
+		v = v[:avail]
+	}
 
 	// Add data to the send queue.
+	l := len(v)
+	s := newSegmentFromView(&e.route, e.id, v)
 	e.sndBufUsed += l
 	e.sndBufInQueue += seqnum.Size(l)
 	e.sndQueue.PushBack(s)
 
 	e.sndBufMu.Unlock()
+	// Release the endpoint lock to prevent deadlocks due to lock
+	// order inversion when acquiring workMu.
+	e.mu.RUnlock()
 
 	if e.workMu.TryLock() {
 		// Do the work inline.
@@ -840,13 +875,13 @@ func (e *endpoint) Write(p tcpip.Payload, opts tcpip.WriteOptions) (uintptr, <-c
 		// Let the protocol goroutine do the work.
 		e.sndWaker.Assert()
 	}
-	return uintptr(l), nil, nil
+	return int64(l), nil, nil
 }
 
 // Peek reads data without consuming it from the endpoint.
 //
 // This method does not block if there is no data pending.
-func (e *endpoint) Peek(vec [][]byte) (uintptr, tcpip.ControlMessages, *tcpip.Error) {
+func (e *endpoint) Peek(vec [][]byte) (int64, tcpip.ControlMessages, *tcpip.Error) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
@@ -872,8 +907,7 @@ func (e *endpoint) Peek(vec [][]byte) (uintptr, tcpip.ControlMessages, *tcpip.Er
 	// Make a copy of vec so we can modify the slide headers.
 	vec = append([][]byte(nil), vec...)
 
-	var num uintptr
-
+	var num int64
 	for s := e.rcvList.Front(); s != nil; s = s.Next() {
 		views := s.data.Views()
 
@@ -892,7 +926,7 @@ func (e *endpoint) Peek(vec [][]byte) (uintptr, tcpip.ControlMessages, *tcpip.Er
 				n := copy(vec[0], v)
 				v = v[n:]
 				vec[0] = vec[0][n:]
-				num += uintptr(n)
+				num += int64(n)
 			}
 		}
 	}
@@ -1314,7 +1348,7 @@ func (e *endpoint) checkV4Mapped(addr *tcpip.FullAddress) (tcpip.NetworkProtocol
 
 		netProto = header.IPv4ProtocolNumber
 		addr.Addr = addr.Addr[header.IPv6AddressSize-header.IPv4AddressSize:]
-		if addr.Addr == "\x00\x00\x00\x00" {
+		if addr.Addr == header.IPv4Any {
 			addr.Addr = ""
 		}
 	}
@@ -1328,13 +1362,13 @@ func (e *endpoint) checkV4Mapped(addr *tcpip.FullAddress) (tcpip.NetworkProtocol
 	return netProto, nil
 }
 
+// Disconnect implements tcpip.Endpoint.Disconnect.
+func (*endpoint) Disconnect() *tcpip.Error {
+	return tcpip.ErrNotSupported
+}
+
 // Connect connects the endpoint to its peer.
 func (e *endpoint) Connect(addr tcpip.FullAddress) *tcpip.Error {
-	if addr.Addr == "" && addr.Port == 0 {
-		// AF_UNSPEC isn't supported.
-		return tcpip.ErrAddressFamilyNotSupported
-	}
-
 	return e.connect(addr, true, true)
 }
 
