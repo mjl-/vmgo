@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/netstack/tcpip"
 	"github.com/google/netstack/tcpip/network/ipv4"
+	"github.com/google/netstack/tcpip/network/ipv6"
 )
 
 // stub
@@ -120,7 +121,7 @@ func (c *UDPConn) ReadFromUDP(b []byte) (int, *UDPAddr, error) {
 		}
 		port, _ := parsePort(portStr)
 		udpAddr = &UDPAddr{
-			IP:   ParseIP(ipStr).To4(),
+			IP:   ParseIP(ipStr),
 			Port: port,
 			// todo for ipv6: Zone
 		}
@@ -193,9 +194,10 @@ func (c *UDPConn) SetWriteDeadline(t time.Time) error {
 	return c.nsconn.SetWriteDeadline(t)
 }
 
-func udpAddrToFull(a *UDPAddr) *tcpip.FullAddress {
+func udpAddrToFull(a *UDPAddr) (tcpip.NetworkProtocolNumber, *tcpip.FullAddress) {
+	proto := ipv6.ProtocolNumber
 	if a == nil {
-		return nil
+		return proto, nil
 	}
 	fa := &tcpip.FullAddress{
 		Port: uint16(a.Port),
@@ -203,11 +205,12 @@ func udpAddrToFull(a *UDPAddr) *tcpip.FullAddress {
 	if a.IP != nil {
 		if a.IP.To4() != nil {
 			fa.Addr = tcpip.Address(a.IP.To4())
+			proto = ipv4.ProtocolNumber
 		} else {
 			fa.Addr = tcpip.Address(a.IP)
 		}
 	}
-	return fa
+	return proto, fa
 }
 
 // DialUDP acts like Dial for UDP networks.
@@ -231,9 +234,9 @@ func DialUDP(network string, laddr, raddr *UDPAddr) (*UDPConn, error) {
 		return nil, &OpError{Op: "dial", Net: network, Source: laddr.opAddr(), Addr: nil, Err: errMissingAddress}
 	}
 
-	lnsaddr := udpAddrToFull(laddr)
-	rnsaddr := udpAddrToFull(raddr)
-	c, err := gonetDialUDP(netstack, lnsaddr, rnsaddr, ipv4.ProtocolNumber)
+	_, lnsaddr := udpAddrToFull(laddr)
+	proto, rnsaddr := udpAddrToFull(raddr)
+	c, err := gonetDialUDP(netstack, lnsaddr, rnsaddr, proto)
 	if err != nil {
 		return nil, err
 	}
@@ -263,8 +266,8 @@ func ListenUDP(network string, laddr *UDPAddr) (*UDPConn, error) {
 	if laddr == nil {
 		laddr = &UDPAddr{}
 	}
-	lnsaddr := udpAddrToFull(laddr)
-	c, err := gonetDialUDP(netstack, lnsaddr, nil, ipv4.ProtocolNumber)
+	proto, lnsaddr := udpAddrToFull(laddr)
+	c, err := gonetDialUDP(netstack, lnsaddr, nil, proto)
 	if err != nil {
 		return nil, err
 	}
@@ -298,9 +301,9 @@ func (sd *sysDialer) dialUDP(ctx context.Context, laddr, raddr *UDPAddr) (*UDPCo
 		return nil, errStack
 	}
 
-	lnsaddr := udpAddrToFull(laddr)
-	rnsaddr := udpAddrToFull(raddr)
-	c, err := gonetDialUDP(netstack, lnsaddr, rnsaddr, ipv4.ProtocolNumber)
+	_, lnsaddr := udpAddrToFull(laddr)
+	proto, rnsaddr := udpAddrToFull(raddr)
+	c, err := gonetDialUDP(netstack, lnsaddr, rnsaddr, proto)
 	if err != nil {
 		return nil, err
 	}
@@ -313,8 +316,8 @@ func (sl *sysListener) listenUDP(ctx context.Context, laddr *UDPAddr) (*UDPConn,
 		return nil, errStack
 	}
 
-	lnsaddr := udpAddrToFull(laddr)
-	c, err := gonetDialUDP(netstack, lnsaddr, nil, ipv4.ProtocolNumber)
+	proto, lnsaddr := udpAddrToFull(laddr)
+	c, err := gonetDialUDP(netstack, lnsaddr, nil, proto)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/google/netstack/tcpip/network/ipv4"
 	"github.com/google/netstack/tcpip/network/ipv6"
 	"github.com/google/netstack/tcpip/stack"
+	"github.com/google/netstack/tcpip/transport/icmp"
 	"github.com/google/netstack/tcpip/transport/tcp"
 	"github.com/google/netstack/tcpip/transport/udp"
 )
@@ -245,8 +246,9 @@ func init() {
 				if gw == nil {
 					fail("bad gw %q in route statement", v)
 				}
-				if gw.To4() != nil {
-					gw = gw.To4()
+				gw4 := gw.To4()
+				if gw4 != nil {
+					gw = gw4
 				}
 			case "nic":
 				i, err := strconv.ParseInt(v, 10, 32)
@@ -334,9 +336,18 @@ func init() {
 		protocols = append(protocols, ipv6.ProtocolName)
 	}
 	if haveEther {
-		protocols = append(protocols, arp.ProtocolName)
+		if haveIP4 {
+			protocols = append(protocols, arp.ProtocolName)
+		}
 	}
-	s := stack.New(protocols, []string{tcp.ProtocolName, udp.ProtocolName}, stack.Options{})
+	transports := []string{tcp.ProtocolName, udp.ProtocolName}
+	if haveIP4 {
+		transports = append(transports, icmp.ProtocolName4)
+	}
+	if haveIP6 {
+		transports = append(transports, icmp.ProtocolName6)
+	}
+	s := stack.New(protocols, transports, stack.Options{})
 
 	for nic, link := range nics {
 		if err := s.CreateNIC(nic, link); err != nil {

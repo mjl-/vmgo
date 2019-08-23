@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/netstack/tcpip"
 	"github.com/google/netstack/tcpip/network/ipv4"
+	"github.com/google/netstack/tcpip/network/ipv6"
 )
 
 func (ln *TCPListener) ok() bool { return ln != nil && ln.fd != nil }
@@ -41,6 +42,15 @@ func (ln *TCPListener) file() (*os.File, error) {
 	return nil, syscall.ENOTSUP
 }
 
+// ipToAddress returns an address and whether it is ipv4-only.
+func ipToAddress(ip IP) (tcpip.NetworkProtocolNumber, tcpip.Address) {
+	v4 := ip.To4()
+	if v4 != nil {
+		return ipv4.ProtocolNumber, tcpip.Address(v4)
+	}
+	return ipv6.ProtocolNumber, tcpip.Address(ip)
+}
+
 func (sd *sysDialer) dialTCP(ctx context.Context, laddr, raddr *TCPAddr) (*TCPConn, error) {
 	if netstack == nil {
 		return nil, errStack
@@ -48,25 +58,32 @@ func (sd *sysDialer) dialTCP(ctx context.Context, laddr, raddr *TCPAddr) (*TCPCo
 
 	lnsaddr := tcpip.FullAddress{}
 	if laddr != nil && laddr.IP != nil {
-		lnsaddr.Addr = tcpip.Address(laddr.IP.To4())
+		_, addr := ipToAddress(laddr.IP)
+		lnsaddr.Addr = addr
 	}
 	if laddr != nil {
 		lnsaddr.Port = uint16(laddr.Port)
 	}
 
+	protoNum, raddress := ipToAddress(raddr.IP)
 	rnsaddr := tcpip.FullAddress{
-		Addr: tcpip.Address(raddr.IP.To4()),
+		Addr: raddress,
 		Port: uint16(raddr.Port),
 		// NIC
 	}
-	c, err := gonetDialContextTCP(ctx, netstack, rnsaddr, ipv4.ProtocolNumber)
+	c, err := gonetDialContextTCP(ctx, netstack, rnsaddr, protoNum)
 	if err != nil {
 		return nil, err
 	}
+	net := "tcp6"
+	if protoNum == ipv4.ProtocolNumber {
+		net = "tcp4"
+	}
 	fd := &netFD{
-		conn: c,
-		net:  "tcp4", // xxx
-		// xxx laddr, raddr
+		conn:  c,
+		net:   net,
+		laddr: laddr,
+		raddr: raddr,
 	}
 	return newTCPConn(fd), nil
 }
@@ -79,16 +96,21 @@ func (sl *sysListener) listenTCP(ctx context.Context, laddr *TCPAddr) (*TCPListe
 	lnsaddr := tcpip.FullAddress{
 		Port: uint16(laddr.Port),
 	}
+	protoNum := ipv6.ProtocolNumber
 	if laddr.IP != nil {
-		lnsaddr.Addr = tcpip.Address(laddr.IP.To4())
+		protoNum, lnsaddr.Addr = ipToAddress(laddr.IP)
 	}
-	c, err := gonetNewListener(netstack, lnsaddr, ipv4.ProtocolNumber)
+	c, err := gonetNewListener(netstack, lnsaddr, protoNum)
 	if err != nil {
 		return nil, err
 	}
+	net := "tcp6"
+	if protoNum == ipv4.ProtocolNumber {
+		net = "tcp4"
+	}
 	nfd := &netFD{
 		lconn: c,
-		net:   "tcp4", // xxx
+		net:   net,
 		laddr: laddr,
 	}
 	return &TCPListener{fd: nfd, lc: sl.ListenConfig}, nil

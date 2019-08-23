@@ -9,6 +9,7 @@ github.com/google/netstack/tcpip/network/arp
 github.com/google/netstack/tcpip/network/ipv4
 github.com/google/netstack/tcpip/network/ipv6
 github.com/google/netstack/tcpip/stack
+github.com/google/netstack/tcpip/transport/icmp
 github.com/google/netstack/tcpip/transport/tcp
 github.com/google/netstack/tcpip/transport/udp
 github.com/google/netstack/waiter
@@ -22,8 +23,8 @@ github.com/google/netstack/sleep
 github.com/google/netstack/tcpip/hash/jenkins
 github.com/google/netstack/tcpip/ports
 github.com/google/netstack/tcpip/seqnum
-github.com/google/netstack/rand
 github.com/google/netstack/tcpip/transport/raw
+github.com/google/netstack/rand
 github.com/google/netstack/tmutex
 # golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
 golang.org/x/crypto/chacha20poly1305
