@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/netstack/tcpip"
+	"github.com/google/netstack/tcpip/header"
 	"github.com/google/netstack/tcpip/link/fdbased"
 	"github.com/google/netstack/tcpip/link/sniffer"
 	"github.com/google/netstack/tcpip/network/arp"
@@ -46,6 +47,7 @@ func init() {
 	//	verbose
 	// 	nic id=1 ether=12:12:12:23:23:23 mtu=1500 fd=3 dev=/dev/tap0 sniff=true
 	// 	ip nic=1 addr=1.2.3.4/24 addr=2.3.4.5/32 addr=ff:aa.../64
+	// 	route nic=1 ipnet=ip/mask
 	// 	route nic=1 ipnet=ip/mask gw=ip...
 	// 	dns ip=1.2.3.4 ip=8.8.8.8
 
@@ -68,7 +70,7 @@ func init() {
 	var (
 		verbose                     bool
 		nics                        = map[tcpip.NICID]tcpip.LinkEndpointID{}
-		ethers                      = map[tcpip.NICID]struct{}{}
+		ethers                      = map[tcpip.NICID]HardwareAddr{}
 		ipaddrs                     []nicip
 		routes                      []tcpip.Route
 		haveIP4, haveIP6, haveEther bool
@@ -171,7 +173,7 @@ func init() {
 		}
 		nics[nic] = linkID
 		if ether != nil {
-			ethers[nic] = struct{}{}
+			ethers[nic] = ether
 		}
 		if verbose {
 			log.Printf("netstack: adding nic id=%d ether=%s mtu=%d fd=%d dev=%s sniff=%v", nic, ether, mtu, fd, dev, sniff)
@@ -355,6 +357,7 @@ func init() {
 		}
 	}
 
+	solDone := map[tcpip.NICID]struct{}{}
 	for _, a := range ipaddrs {
 		num := ipv4.ProtocolNumber
 		if len(a.ip) == 16 {
@@ -362,6 +365,40 @@ func init() {
 		}
 		if err := s.AddAddress(a.nic, num, tcpip.Address(a.ip)); err != nil {
 			fail("adding address %s to nic %d in stack: %v", a.ip, a.nic, err)
+		}
+
+		if len(a.ip) == 16 {
+			snaddr := header.SolicitedNodeAddr(tcpip.Address(a.ip))
+			if verbose {
+				log.Printf("netstack: adding ndp address %v", snaddr)
+			}
+			s.AddAddress(a.nic, num, snaddr)
+			if _, ok := solDone[a.nic]; !ok {
+				ether, ok := ethers[a.nic]
+				if ok {
+					lladdr := header.LinkLocalAddr(tcpip.LinkAddress(ether))
+					snlladdr := header.SolicitedNodeAddr(lladdr)
+					/*
+						_, localnet, _ := ParseCIDR("fe80::/10")
+						subnet, err := tcpip.NewSubnet(tcpip.Address(localnet.IP), tcpip.AddressMask(localnet.Mask))
+						if err != nil {
+							fail("making local subnet: %v", err)
+						}
+						route := tcpip.Route{
+							Destination: subnet,
+							NIC: a.nic,
+						}
+						routes = append(routes, route)
+					*/
+					if verbose {
+						log.Printf("netstack: adding link local addr %s for nic %d", lladdr, a.nic)
+						log.Printf("netstack: adding link local ndp address %s for nic %d", snlladdr, a.nic)
+					}
+					s.AddAddress(a.nic, num, lladdr)
+					s.AddAddress(a.nic, num, snlladdr)
+				}
+				solDone[a.nic] = struct{}{}
+			}
 		}
 	}
 
