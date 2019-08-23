@@ -4,6 +4,12 @@
 
 package net
 
+import (
+	"syscall"
+
+	"github.com/google/netstack/tcpip"
+)
+
 /*
 import (
 	"internal/bytealg"
@@ -102,17 +108,24 @@ done:
 */
 
 func setReadBuffer(fd *netFD, bytes int) error {
-	return notyet("setReadBuffer")
+	return wrapNetstackError(fd.conn.ep.SetSockOpt(tcpip.ReceiveBufferSizeOption(bytes)))
 }
 
 func setWriteBuffer(fd *netFD, bytes int) error {
-	return notyet("setWriteBuffer")
+	return wrapNetstackError(fd.conn.ep.SetSockOpt(tcpip.SendBufferSizeOption(bytes)))
 }
 
 func setKeepAlive(fd *netFD, keepalive bool) error {
-	return notyet("setKeepAlive")
+	v := 0
+	if keepalive {
+		v = 1
+	}
+	return wrapNetstackError(fd.conn.ep.SetSockOpt(tcpip.KeepaliveEnabledOption(v)))
 }
 
 func setLinger(fd *netFD, sec int) error {
-	return notyet("setLinger")
+	// does not seem supported by netstack. if close would abort (not flushing pending
+	// writes), we could do a flush in a goroutine during close with so_linger set. but
+	// gonet doesn't have a flush operation.
+	return syscall.ENOTSUP
 }

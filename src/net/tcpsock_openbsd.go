@@ -18,7 +18,14 @@ func (ln *TCPListener) accept() (*TCPConn, error) {
 		return nil, err
 	}
 	tc := newTCPConn(fd)
-	// xxx set keepalive
+	if ln.lc.KeepAlive >= 0 {
+		setKeepAlive(fd, true)
+		ka := ln.lc.KeepAlive
+		if ln.lc.KeepAlive == 0 {
+			ka = defaultTCPKeepAlive
+		}
+		setKeepAlivePeriod(fd, ka)
+	}
 	return tc, nil
 }
 
@@ -52,7 +59,7 @@ func (sd *sysDialer) dialTCP(ctx context.Context, laddr, raddr *TCPAddr) (*TCPCo
 		Port: uint16(raddr.Port),
 		// NIC
 	}
-	c, err := gonetDialTCP(netstack, rnsaddr, ipv4.ProtocolNumber)
+	c, err := gonetDialContextTCP(ctx, netstack, rnsaddr, ipv4.ProtocolNumber)
 	if err != nil {
 		return nil, err
 	}
