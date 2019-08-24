@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // +build aix darwin dragonfly freebsd js,wasm linux nacl netbsd openbsd solaris windows
+// +build !netstack
 
 package net
 

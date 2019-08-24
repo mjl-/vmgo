@@ -6,6 +6,7 @@
 // provide a fast path for setting SetNonblock and CloseOnExec.
 
 // +build aix darwin nacl solaris
+// +build !netstack
 
 package net
 

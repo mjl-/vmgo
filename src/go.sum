@@ -1,3 +1,9 @@
+github.com/google/btree v1.0.0 h1:0udJVsspx3VBr5FwtLhQQtuAsVc79tTq0ocGIPAU6qo=
+github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
+github.com/google/netstack v0.0.0-20190823174317-a24973aa5333 h1:gM9diLBA4Q8XpJXWzifaU3tHRmC4TQNGgLV+y3kcaoE=
+github.com/google/netstack v0.0.0-20190823174317-a24973aa5333/go.mod h1:r/rILWg3r1Qy9G1IFMhsqWLq2GjwuYoTuPgG7ckMAjk=
+github.com/mjl-/netstack v0.0.0-20190824132906-a07ed96e016a h1:iZgh1txhwy6cWvOaen6yFbAEifnWlI2UrvXfjmH7gng=
+github.com/mjl-/netstack v0.0.0-20190824132906-a07ed96e016a/go.mod h1:sI3j1DUBUzP9RW6nuKp08FvNdHSuVEUTm7M0nZDR9As=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8 h1:1wopBVtVdWnn03fZelqdXTqk7U7zPQCb+T4rbU9ZEoU=
 golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=

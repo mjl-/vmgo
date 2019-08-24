@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // +build aix nacl js,wasm solaris
+// +build !netstack
 
 package net
 

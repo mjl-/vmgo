@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // +build aix freebsd linux netbsd
+// +build !netstack
 
 package net
 

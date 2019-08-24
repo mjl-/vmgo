@@ -6,6 +6,7 @@
 // provide a fast path for setting SetNonblock and CloseOnExec.
 
 // +build dragonfly freebsd linux netbsd openbsd
+// +build !netstack
 
 package net
 
