@@ -53,12 +53,14 @@ The runtime does surprisingly few file opens. These might be opened on openbsd, 
 
 ## netstack
 
-Seems to work (ipv6 addresses can also be configured):
+Starting to work:
 
-	export GONET='verbose; nic id=1 ether=fe:e1:ba:d0:11:11 mtu=1500 fd=3 sniff=true; ip nic=1 addr=192.168.178.3; route nic=1 ipnet=192.168.178.0/24; route nic=1 ipnet=0.0.0.0/0 gw=192.168.178.1; dns ip=192.168.178.1'
+	export GONET='verbose; nic id=1 ether=fe:e1:ba:d0:11:11 mtu=1500 fd=3 sniff=true; ip nic=1 addr=192.168.178.3/24; route nic=1 ipnet=0.0.0.0/0 gw=192.168.1.1; dns ip=8.8.8.8'
 	./withtuntap /dev/tap0 ./webapp -addr :80
 
 Withtuntap opens the tap device on fd 3, then execs ./webapp. Make sure you don't use an existing ethernet address configured on the tap device.
+
+Add an IPv6 address enables the IPv6 stack including a link local address and NDP.
 
 More work:
 
