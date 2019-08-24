@@ -20,28 +20,14 @@ import (
 	"crypto/rand"
 	"io"
 	"sync"
-
-	"golang.org/x/sys/unix"
 )
 
 // reader implements an io.Reader that returns pseudorandom bytes.
 type reader struct {
-	once         sync.Once
-	useGetrandom bool
 }
 
 // Read implements io.Reader.Read.
 func (r *reader) Read(p []byte) (int, error) {
-	r.once.Do(func() {
-		_, err := unix.Getrandom(p, 0)
-		if err != unix.ENOSYS {
-			r.useGetrandom = true
-		}
-	})
-
-	if r.useGetrandom {
-		return unix.Getrandom(p, 0)
-	}
 	return rand.Read(p)
 }
 

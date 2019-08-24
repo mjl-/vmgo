@@ -24,7 +24,8 @@ import (
 	"github.com/google/netstack/tcpip/buffer"
 	"github.com/google/netstack/tcpip/header"
 	"github.com/google/netstack/tcpip/link/rawfile"
-	"golang.org/x/sys/unix"
+
+	// "golang.org/x/sys/unix"
 )
 
 const (
@@ -130,9 +131,13 @@ type packetMMapDispatcher struct {
 func (d *packetMMapDispatcher) readMMappedPacket() ([]byte, *tcpip.Error) {
 	hdr := tPacketHdr(d.ringBuffer[d.ringOffset*tpFrameSize:])
 	for hdr.tpStatus()&tpStatusUser == 0 {
+		const (
+			unixPOLLIN = 0x1 // unix.POLLIN
+			unixPOLLERR = 0x8 // unix.POLLERR
+		)
 		event := rawfile.PollEvent{
 			FD:     int32(d.fd),
-			Events: unix.POLLIN | unix.POLLERR,
+			Events: unixPOLLIN | unixPOLERR,
 		}
 		if _, errno := rawfile.BlockingPoll(&event, 1, nil); errno != 0 {
 			if errno == syscall.EINTR {

@@ -1,8 +1,9 @@
 # github.com/google/btree v1.0.0
 github.com/google/btree
-# github.com/google/netstack v0.0.0-00010101000000-000000000000 => github.com/mjl-/netstack v0.0.0-20190823123829-92d57aa60fe3
+# github.com/google/netstack v0.0.0-00010101000000-000000000000 => github.com/mjl-/netstack v0.0.0-20190823153857-4be9820053a1
 github.com/google/netstack/tcpip
 github.com/google/netstack/tcpip/buffer
+github.com/google/netstack/tcpip/header
 github.com/google/netstack/tcpip/link/fdbased
 github.com/google/netstack/tcpip/link/sniffer
 github.com/google/netstack/tcpip/network/arp
@@ -14,7 +15,7 @@ github.com/google/netstack/tcpip/transport/tcp
 github.com/google/netstack/tcpip/transport/udp
 github.com/google/netstack/waiter
 github.com/google/netstack/tcpip/iptables
-github.com/google/netstack/tcpip/header
+github.com/google/netstack/tcpip/seqnum
 github.com/google/netstack/tcpip/link/rawfile
 github.com/google/netstack/tcpip/network/fragmentation
 github.com/google/netstack/tcpip/network/hash
@@ -22,7 +23,6 @@ github.com/google/netstack/ilist
 github.com/google/netstack/sleep
 github.com/google/netstack/tcpip/hash/jenkins
 github.com/google/netstack/tcpip/ports
-github.com/google/netstack/tcpip/seqnum
 github.com/google/netstack/tcpip/transport/raw
 github.com/google/netstack/rand
 github.com/google/netstack/tmutex
@@ -35,7 +35,7 @@ golang.org/x/crypto/cryptobyte/asn1
 golang.org/x/crypto/internal/chacha20
 golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/poly1305
-# golang.org/x/net v0.0.0-20190607172144-d5cec3884524
+# golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
 golang.org/x/net/dns/dnsmessage
 golang.org/x/net/lif
 golang.org/x/net/route
@@ -44,9 +44,8 @@ golang.org/x/net/http/httpproxy
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/nettest
-# golang.org/x/sys v0.0.0-20190804053845-51ab0e2deafa
+# golang.org/x/sys v0.0.0-20190529130038-5219a1e1c5f8
 golang.org/x/sys/cpu
-golang.org/x/sys/unix
 # golang.org/x/text v0.3.2
 golang.org/x/text/secure/bidirule
 golang.org/x/text/unicode/bidi

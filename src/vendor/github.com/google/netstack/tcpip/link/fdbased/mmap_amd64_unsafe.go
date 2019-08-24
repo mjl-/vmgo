@@ -22,7 +22,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/sys/unix"
+	// "golang.org/x/sys/unix"
 )
 
 // tPacketHdrlen is the TPACKET_HDRLEN variable defined in <linux/if_packet.h>.
@@ -51,7 +51,7 @@ func newPacketMMapDispatcher(fd int, e *endpoint) (linkDispatcher, error) {
 		fd: fd,
 		e:  e,
 	}
-	pageSize := unix.Getpagesize()
+	pageSize := 4*1024 // unix.Getpagesize()
 	if tpBlockSize%pageSize != 0 {
 		return nil, fmt.Errorf("tpBlockSize: %d is not page aligned, pagesize: %d", tpBlockSize, pageSize)
 	}
