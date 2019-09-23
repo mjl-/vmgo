@@ -91,6 +91,8 @@ var (
 	FlagTextAddr    = flag.Int64("T", -1, "set text segment `address`")
 	flagEntrySymbol = flag.String("E", "", "set `entry` symbol name")
 
+	solo5Manifest = flag.String("solo5manifest", "", "path to solo5 manifest.json")
+
 	cpuprofile     = flag.String("cpuprofile", "", "write cpu profile to `file`")
 	memprofile     = flag.String("memprofile", "", "write memory profile to `file`")
 	memprofilerate = flag.Int64("memprofilerate", 0, "set runtime.MemProfileRate to `rate`")
@@ -164,6 +166,10 @@ func Main(arch *sys.Arch, theArch Arch) {
 		if ctxt.HeadType == objabi.Hwindows {
 			*flagOutfile += ".exe"
 		}
+	}
+
+	if *solo5Manifest != "" {
+		parseSolo5Manifest(ctxt)
 	}
 
 	interpreter = *flagInterpreter

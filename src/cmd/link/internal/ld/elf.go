@@ -879,6 +879,58 @@ func elfwriteopenbsdsig(out *OutBuf) int {
 	return int(sh.size)
 }
 
+// For ".note.solo5.abi"
+const (
+	ELF_NOTE_SOLO5ABI_NAMESZ = 6 // sizeof "Solo5\0"
+	ELF_NOTE_SOLO5ABI_DESCSZ = 4*4
+	ELF_NOTE_SOLO5ABI_TAG = 0x31494241 // "ABI1"
+)
+
+func elfsolo5abi(sh *ElfShdr, startva uint64, resoff uint64) int {
+	n := 8 + 4*4
+	return elfnote(sh, startva, resoff, n)
+}
+
+func elfwritesolo5abi(out *OutBuf) int {
+	sh := elfwritenotehdr(out, ".note.solo5.abi", ELF_NOTE_SOLO5ABI_NAMESZ, ELF_NOTE_SOLO5ABI_DESCSZ, ELF_NOTE_SOLO5ABI_TAG)
+	if sh == nil {
+		return 0
+	}
+
+	out.Write([]byte("Solo5\000" + "\000\000"))
+	out.Write32(1) // target: 1=hvt
+	out.Write32(1) // version: 1
+	out.Write32(0) // reserved0
+	out.Write32(0) // reserved1
+	return int(sh.size)
+}
+
+// For ".note.solo5.manifest", describing the required machine configuration, eg disk & network interfaces.
+const (
+	ELF_NOTE_SOLO5MFT_NAMESZ = 6 // sizeof "Solo5\0"
+	ELF_NOTE_SOLO5MFT_TAG = 0x3154464d // "MFT1"
+)
+
+func elfsolo5manifest(ctxt *Link, sh *ElfShdr, startva uint64, resoff uint64) int {
+	const align = 4
+	n := 8 + align + len(ctxt.solo5Manifest)
+	return elfnote(sh, startva, resoff, n)
+}
+
+func elfwritesolo5manifest(ctxt *Link, out *OutBuf) int {
+	const align = 4
+	size := align + len(ctxt.solo5Manifest)
+	sh := elfwritenotehdr(out, ".note.solo5.manifest", ELF_NOTE_SOLO5MFT_NAMESZ, uint32(size), ELF_NOTE_SOLO5MFT_TAG)
+	if sh == nil {
+		return 0
+	}
+
+	out.Write([]byte("Solo5\000" + "\000\000"))
+	out.Write32(0) // align manifest on 8-byte boundary after preceding data
+	out.Write(ctxt.solo5Manifest)
+	return int(sh.size)
+}
+
 func addbuildinfo(val string) {
 	if !strings.HasPrefix(val, "0x") {
 		Exitf("-B argument must start with 0x: %s", val)
@@ -1452,6 +1504,8 @@ func (ctxt *Link) doelf() {
 	}
 	if ctxt.HeadType == objabi.Hopenbsd {
 		Addstring(shstrtab, ".note.openbsd.ident")
+		Addstring(shstrtab, ".note.solo5.abi")
+		Addstring(shstrtab, ".note.solo5.manifest")
 	}
 	if len(buildinfo) > 0 {
 		Addstring(shstrtab, ".note.gnu.build-id")
@@ -1894,6 +1948,23 @@ func Asmbelf(ctxt *Link, symo int64) {
 		phsh(pnote, sh)
 	}
 
+	if ctxt.HeadType == objabi.Hopenbsd {
+		newNotePhdr := func() *ElfPhdr {
+			ph := newElfPhdr()
+			ph.type_ = PT_NOTE
+			ph.flags = PF_R
+			return ph
+		}
+
+		abi := elfshname(".note.solo5.abi")
+		resoff -= int64(elfsolo5abi(abi, uint64(startva), uint64(resoff)))
+		phsh(newNotePhdr(), abi)
+
+		mft := elfshname(".note.solo5.manifest")
+		resoff -= int64(elfsolo5manifest(ctxt, mft, uint64(startva), uint64(resoff)))
+		phsh(newNotePhdr(), mft)
+	}
+
 	if len(buildinfo) > 0 {
 		sh := elfshname(".note.gnu.build-id")
 		resoff -= int64(elfbuildinfo(sh, uint64(startva), uint64(resoff)))
@@ -2238,6 +2309,10 @@ elfobj:
 		}
 		if ctxt.HeadType == objabi.Hopenbsd {
 			a += int64(elfwriteopenbsdsig(ctxt.Out))
+		}
+		if ctxt.solo5Manifest != nil {
+			a += int64(elfwritesolo5abi(ctxt.Out))
+			a += int64(elfwritesolo5manifest(ctxt, ctxt.Out))
 		}
 		if len(buildinfo) > 0 {
 			a += int64(elfwritebuildinfo(ctxt.Out))

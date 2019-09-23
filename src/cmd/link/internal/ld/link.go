@@ -95,6 +95,8 @@ type Link struct {
 	compUnitByPackage map[*sym.Library]*compilationUnit
 
 	relocbuf []byte // temporary buffer for applying relocations
+
+	solo5Manifest []byte	 // contents of elf segment ".note.solo5.manifest"
 }
 
 type unresolvedSymKey struct {
