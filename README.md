@@ -23,13 +23,17 @@ the functionality in the future. Files. Network stack. Processes,
 signals. Most remaining system calls.
 
 
+## using
+
+First build the toolchain on any platform that is not openbsd. Then you can cross-compile to GOOS=openbsd. Resulting binaries have limited syscall access, no file access and networking based on netstack.
+
 ## changes
 
 (this list is probably incomplete)
 
-	- many "syscall" functions return ENOTSUP
 	- file system-related syscalls typically return errors. os.Open() only works on files that were added with the new os.AddFile(path, data), for adding /etc/resolv.conf, /etc/ssl/cert.pem, etc.  os.PrintOpen(bool) toggles printing opens, for debugging.
-	- network-related syscalls return errors. net is replaced with a (WIP) netstack-backed version that uses the tun/tap device on fd 3.
+	- net is replaced with a (WIP) netstack-backed version that uses the tun/tap device on fd 3. network-related syscalls return errors.
+	- many "syscall" functions return ENOTSUP
 	- during runtime init, we pledge to "stdio unveil" and unveil nothing.
 	- getentropy() is used during runtime init, not /dev/urandom (crypto/rand already uses getentropy)
 	- no cgo, probably necessary anyway, but also gets rid of one more variable.
@@ -56,9 +60,8 @@ Seems to work (ipv6 addresses can also be configured):
 
 Withtuntap opens the tap device on fd 3, then execs ./webapp. Make sure you don't use an existing ethernet address configured on the tap device.
 
-Next steps:
+More work:
 
-	- make a clean branch "netstack" that uses buildtag "netstack" to build "net" with netstack instead of regular OS network support. linux first.
 	- add ipraw support
 	- add udp multicast support
 	- improve handling of "tcp4" vs "tcp6" (udp as well)
@@ -70,6 +73,7 @@ Next steps:
 
 ## todo
 
+	- make a clean branch "netstack" that uses buildtag "netstack" to build "net" with netstack instead of regular OS network support. linux first.
 	- change the go compiler to include files from a dir as fs tree to use for os.Open.
 	- remove process creation from the runtime for the openbsd arch. take a hint from wasm, which is single process.
 	- some way to pass & parse variables when there are no more regular env vars.

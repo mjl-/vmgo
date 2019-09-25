@@ -10,6 +10,8 @@ require (
 	golang.org/x/text v0.3.2 // indirect
 )
 
-replace github.com/google/netstack => github.com/mjl-/netstack v0.0.0-20190823123829-92d57aa60fe3
+// NOTE: you may need to remove the replace-part for github.com/google/netstack in vendor/modules.txt to not trip cmd/go/internal/modload/init.go:403
+
+replace github.com/google/netstack => github.com/mjl-/netstack v0.0.0-20190925083236-4feb38973887
 
 // replace github.com/google/netstack => ../../netstack

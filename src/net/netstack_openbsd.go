@@ -2,12 +2,8 @@ package net
 
 import (
 	"errors"
-	"fmt"
-	"log"
 	"math/rand"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/netstack/tcpip"
@@ -29,6 +25,15 @@ var (
 	errStack            = errors.New("no network stack")
 )
 
+func splitPair(s string) (string, string) {
+	for i, c := range s{
+		if c == '=' {
+			return s[:i], s[i+1:]
+		}
+	}
+	return s, ""
+}
+
 func init() {
 	gonet := os.Getenv("GONET")
 	if gonet == "" {
@@ -38,8 +43,12 @@ func init() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	fail := func(format string, args ...interface{}) {
-		panic(fmt.Sprintf("netstack init: "+format, args...))
+	fail := func(args ...string) {
+		s := ""
+		for _, v := range args {
+			s += v
+		}
+		panic(errors.New(s))
 	}
 
 	// Example of what we are trying to parse:
@@ -54,11 +63,8 @@ func init() {
 	parseArgs := func(pairs []string) [][2]string {
 		args := make([][2]string, len(pairs))
 		for i, p := range pairs {
-			t := strings.SplitN(p, "=", 2)
-			if len(t) != 2 {
-				fail("bad pair %q", p)
-			}
-			args[i] = [...]string{t[0], t[1]}
+			k, v := splitPair(p)
+			args[i] = [...]string{k, v}
 		}
 		return args
 	}
@@ -77,9 +83,9 @@ func init() {
 	)
 
 	xparseNIC := func(s string) tcpip.NICID {
-		v, err := strconv.ParseInt(s, 10, 32)
-		if err != nil {
-			fail("invalid nic id %q: %v", s, err)
+		v, _, ok := dtoi(s)
+		if !ok {
+			fail("invalid nic id ", s)
 		}
 		if v == 0 {
 			fail("invalid nic id 0")
@@ -107,18 +113,18 @@ func init() {
 				}
 				mac, err := ParseMAC(v)
 				if err != nil {
-					fail("parsing ether %q: %v", v, err)
+					fail("parsing ether ", v, ": ", err.Error())
 				}
 				if len(mac) != 6 {
-					fail("invalid ether length, must be six bytes, saw %q of %d", v, len(mac))
+					fail("invalid ether length, must be six bytes, saw ", v, " of ", itoa(len(mac)))
 				}
 				ether = mac
 				haveEther = true
 			case "mtu":
-				var err error
-				mtu, err = strconv.Atoi(v)
-				if err != nil {
-					fail("parsing mtu %q: %v", v, err)
+				var ok bool
+				mtu, _, ok = dtoi(v)
+				if !ok {
+					fail("parsing mtu ", v)
 				}
 			case "fd":
 				if v != "3" {
@@ -135,17 +141,17 @@ func init() {
 				case "false":
 					sniff = false
 				default:
-					fail("bad sniff %q", v)
+					fail("bad sniff ", v)
 				}
 			default:
-				fail("bad route keyword %q", k)
+				fail("bad route keyword ", k)
 			}
 		}
 		if nic == 0 {
 			fail("nic: missing id")
 		}
 		if _, ok := nics[nic]; ok {
-			fail("nic: duplicate nic %d", nic)
+			fail("nic: duplicate nic ", itoa(int(nic)))
 		}
 		if mtu == 0 {
 			fail("nic: missing mtu")
@@ -166,7 +172,7 @@ func init() {
 		}
 		linkID, err := fdbased.New(fdOpts)
 		if err != nil {
-			fail("making new fd-based link: %v", err)
+			fail("making new fd-based link: ", err.Error())
 		}
 		if sniff {
 			linkID = sniffer.New(linkID)
@@ -176,7 +182,7 @@ func init() {
 			ethers[nic] = ether
 		}
 		if verbose {
-			log.Printf("netstack: adding nic id=%d ether=%s mtu=%d fd=%d dev=%s sniff=%v", nic, ether, mtu, fd, dev, sniff)
+			print("netstack: adding nic id=", nic, " ether=", ether.String(), " mtu=", mtu, " fd=", fd, " dev=", dev, " sniff=", sniff, "\n")
 		}
 	}
 
@@ -191,7 +197,7 @@ func init() {
 			case "addr":
 				ip := ParseIP(v)
 				if ip == nil {
-					fail("bad addr value %q", v)
+					fail("bad addr value ", v)
 				}
 				ips = append(ips, ip)
 				if ip.To4() != nil {
@@ -200,14 +206,14 @@ func init() {
 					haveIP6 = true
 				}
 			default:
-				fail("bad ip keyword %q", k)
+				fail("bad ip keyword ", k)
 			}
 		}
 		if nic == 0 {
 			fail("missing nic in ip statement")
 		}
 		if _, ok := nics[nic]; !ok {
-			fail("unknown nic %d in ip statement, define it before use", nic)
+			fail("unknown nic ", itoa(int(nic)), " in ip statement, define it before use")
 		}
 		if len(ips) == 0 {
 			fail("no addresses in ip statement")
@@ -218,7 +224,7 @@ func init() {
 			}
 			a := nicip{nic, ip}
 			if verbose {
-				log.Printf("netstack: adding ip nic=%d addr=%s", a.nic, a.ip)
+				print("netstack: adding ip nic=", nic, " addr=", a.ip.String(), "\n")
 			}
 			ipaddrs = append(ipaddrs, a)
 		}
@@ -237,7 +243,7 @@ func init() {
 				var err error
 				_, ipnet, err = ParseCIDR(v)
 				if err != nil {
-					fail("bad ipnet %q in route statement: %v", v, err)
+					fail("bad ipnet ", v, " in route statement: ", err.Error())
 				}
 			case "gw":
 				if v == "" {
@@ -246,20 +252,20 @@ func init() {
 				}
 				gw = ParseIP(v)
 				if gw == nil {
-					fail("bad gw %q in route statement", v)
+					fail("bad gw ", v, " in route statement")
 				}
 				gw4 := gw.To4()
 				if gw4 != nil {
 					gw = gw4
 				}
 			case "nic":
-				i, err := strconv.ParseInt(v, 10, 32)
-				if err != nil {
-					fail("bad nic %q in route statement, must be int32", v)
+				i, _, ok := dtoi(v)
+				if !ok {
+					fail("bad nic ", v, " in route statement, must be int")
 				}
 				nic = tcpip.NICID(i)
 			default:
-				fail("bad route keyword %q", k)
+				fail("bad route keyword ", k)
 			}
 		}
 		if nic == 0 {
@@ -269,11 +275,11 @@ func init() {
 			fail("missing ipnet in route statement")
 		}
 		if _, ok := nics[nic]; !ok {
-			fail("unknown nic %v, define nic before using", nic)
+			fail("unknown nic ", itoa(int(nic)), " define nic before using")
 		}
 		subnet, err := tcpip.NewSubnet(tcpip.Address(ipnet.IP), tcpip.AddressMask(ipnet.Mask))
 		if err != nil {
-			fail("bad subnet %s: %v", ipnet, err)
+			fail("bad subnet ", ipnet.String(), ": ", err.Error())
 		}
 		route := tcpip.Route{
 			Destination: subnet,
@@ -281,7 +287,11 @@ func init() {
 			NIC:         nic,
 		}
 		if verbose {
-			log.Printf("netstack: adding route id=%d ipnet=%s gw=%s", nic, ipnet, gw)
+			sgw := ""
+			if gw != nil {
+				sgw = gw.String()
+			}
+			print("netstack: adding route id=", nic, " ipnet=", ipnet.String(), " gw=", sgw, "\n")
 		}
 		routes = append(routes, route)
 	}
@@ -298,16 +308,21 @@ func init() {
 				}
 				netstackNameservers = append(netstackNameservers, v)
 			default:
-				fail("bad dns keyword %q", k)
+				fail("bad dns keyword ", k)
 			}
 		}
 		if verbose {
-			log.Printf("netstack: dns %v", netstackNameservers)
+			s := "netstack: dns"
+			for _, ns := range netstackNameservers {
+				s += " " + ns
+			}
+			s += "\n"
+			print(s)
 		}
 	}
 
 	parseLine := func(line string) {
-		t := strings.Split(line, " ")
+		t := splitAtBytes(line, " ")
 		args := parseArgs(t[1:])
 		switch t[0] {
 		case "verbose":
@@ -321,12 +336,12 @@ func init() {
 		case "dns":
 			parseDNS(args)
 		default:
-			fail("unknown keyword %q", t[0])
+			fail("unknown keyword ", t[0])
 		}
 	}
 
-	for _, line := range strings.Split(gonet, ";") {
-		line = strings.TrimSpace(line)
+	for _, line := range splitAtBytes(gonet, ";") {
+		line = string(trimSpace([]byte(line)))
 		parseLine(line)
 	}
 
@@ -353,7 +368,7 @@ func init() {
 
 	for nic, link := range nics {
 		if err := s.CreateNIC(nic, link); err != nil {
-			fail("creating nic: %v", err)
+			fail("creating nic: ", err.String())
 		}
 	}
 
@@ -364,13 +379,13 @@ func init() {
 			num = ipv6.ProtocolNumber
 		}
 		if err := s.AddAddress(a.nic, num, tcpip.Address(a.ip)); err != nil {
-			fail("adding address %s to nic %d in stack: %v", a.ip, a.nic, err)
+			fail("adding address ", a.ip.String(), " to nic ", itoa(int(a.nic)), " in stack: ", err.String())
 		}
 
 		if len(a.ip) == 16 {
 			snaddr := header.SolicitedNodeAddr(tcpip.Address(a.ip))
 			if verbose {
-				log.Printf("netstack: adding ndp address %v", snaddr)
+				print("netstack: adding ndp address", snaddr.String(), "\n")
 			}
 			s.AddAddress(a.nic, num, snaddr)
 			if _, ok := solDone[a.nic]; !ok {
@@ -382,7 +397,7 @@ func init() {
 						_, localnet, _ := ParseCIDR("fe80::/10")
 						subnet, err := tcpip.NewSubnet(tcpip.Address(localnet.IP), tcpip.AddressMask(localnet.Mask))
 						if err != nil {
-							fail("making local subnet: %v", err)
+							fail("making local subnet: ", err.Error())
 						}
 						route := tcpip.Route{
 							Destination: subnet,
@@ -391,8 +406,8 @@ func init() {
 						routes = append(routes, route)
 					*/
 					if verbose {
-						log.Printf("netstack: adding link local addr %s for nic %d", lladdr, a.nic)
-						log.Printf("netstack: adding link local ndp address %s for nic %d", snlladdr, a.nic)
+						print("netstack: adding link local addr ", lladdr.String(), " for nic ", a.nic, "\n")
+						print("netstack: adding link local ndp address ", snlladdr.String(), " for nic ", a.nic, "\n")
 					}
 					s.AddAddress(a.nic, num, lladdr)
 					s.AddAddress(a.nic, num, snlladdr)
@@ -404,7 +419,7 @@ func init() {
 
 	for nic, _ := range ethers {
 		if err := s.AddAddress(nic, arp.ProtocolNumber, "arp"); err != nil {
-			fail("adding arp to stack: %v", err)
+			fail("adding arp to stack: ", err.String())
 		}
 	}
 

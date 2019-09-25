@@ -2,7 +2,6 @@ package net
 
 import (
 	"errors"
-	"fmt"
 )
 
 // If the ifindex is zero, interfaceTable returns mappings of all
@@ -25,7 +24,7 @@ func interfaceTable(ifindex int) ([]Interface, error) {
 			}
 			name := info.Name
 			if name == "" {
-				name = fmt.Sprintf("nic%d", id)
+				name = "nic" + itoa(int(id))
 			}
 			iface := Interface{
 				Index:        int(id),
