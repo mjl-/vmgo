@@ -26,7 +26,7 @@ var (
 )
 
 func splitPair(s string) (string, string) {
-	for i, c := range s{
+	for i, c := range s {
 		if c == '=' {
 			return s[:i], s[i+1:]
 		}
@@ -54,11 +54,10 @@ func init() {
 	// Example of what we are trying to parse:
 	//
 	//	verbose
-	// 	nic id=1 ether=12:12:12:23:23:23 mtu=1500 fd=3 dev=/dev/tap0 sniff=true
-	// 	ip nic=1 addr=1.2.3.4/24 addr=2.3.4.5/32 addr=ff:aa.../64
-	// 	route nic=1 ipnet=ip/mask
-	// 	route nic=1 ipnet=ip/mask gw=ip...
-	// 	dns ip=1.2.3.4 ip=8.8.8.8
+	// 	nic id=1 ether=12:12:12:23:23:23 mtu=1500 fd=3 dev=/dev/tap0 sniff=true  # note: only fd=3 for now, in future either fd or dev
+	// 	ip nic=1 addr=192.168.1.100/24 addr=aabb:ccdd:.../64
+	// 	route nic=1 ipnet=0.0.0.0/0 gw=192.168.1.1
+	// 	dns ip=8.8.8.8
 
 	parseArgs := func(pairs []string) [][2]string {
 		args := make([][2]string, len(pairs))
@@ -188,6 +187,7 @@ func init() {
 
 	parseIP := func(args [][2]string) {
 		var ips []IP
+		var ipnets []*IPNet
 		var nic tcpip.NICID
 		for _, p := range args {
 			k, v := p[0], p[1]
@@ -195,11 +195,12 @@ func init() {
 			case "nic":
 				nic = xparseNIC(v)
 			case "addr":
-				ip := ParseIP(v)
-				if ip == nil {
-					fail("bad addr value ", v)
+				ip, ipnet, err := ParseCIDR(v)
+				if err != nil {
+					fail("bad addr value ", err.Error())
 				}
 				ips = append(ips, ip)
+				ipnets = append(ipnets, ipnet)
 				if ip.To4() != nil {
 					haveIP4 = true
 				} else {
@@ -218,7 +219,8 @@ func init() {
 		if len(ips) == 0 {
 			fail("no addresses in ip statement")
 		}
-		for _, ip := range ips {
+		for i, ip := range ips {
+			ipnet := ipnets[i]
 			if ip.To4() != nil {
 				ip = ip.To4()
 			}
@@ -227,6 +229,16 @@ func init() {
 				print("netstack: adding ip nic=", nic, " addr=", a.ip.String(), "\n")
 			}
 			ipaddrs = append(ipaddrs, a)
+
+			subnet, err := tcpip.NewSubnet(tcpip.Address(ipnet.IP), tcpip.AddressMask(ipnet.Mask))
+			if err != nil {
+				fail("bad subnet ", ipnet.String(), ": ", err.Error())
+			}
+			route := tcpip.Route{
+				Destination: subnet,
+				NIC:         nic,
+			}
+			routes = append(routes, route)
 		}
 	}
 
@@ -246,10 +258,6 @@ func init() {
 					fail("bad ipnet ", v, " in route statement: ", err.Error())
 				}
 			case "gw":
-				if v == "" {
-					gw = nil
-					continue
-				}
 				gw = ParseIP(v)
 				if gw == nil {
 					fail("bad gw ", v, " in route statement")
@@ -274,6 +282,9 @@ func init() {
 		if ipnet == nil {
 			fail("missing ipnet in route statement")
 		}
+		if gw == nil {
+			fail("missing gw in route statement")
+		}
 		if _, ok := nics[nic]; !ok {
 			fail("unknown nic ", itoa(int(nic)), " define nic before using")
 		}
@@ -287,11 +298,7 @@ func init() {
 			NIC:         nic,
 		}
 		if verbose {
-			sgw := ""
-			if gw != nil {
-				sgw = gw.String()
-			}
-			print("netstack: adding route id=", nic, " ipnet=", ipnet.String(), " gw=", sgw, "\n")
+			print("netstack: adding route id=", nic, " ipnet=", ipnet.String(), " gw=", gw.String(), "\n")
 		}
 		routes = append(routes, route)
 	}
