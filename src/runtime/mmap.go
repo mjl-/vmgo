@@ -11,6 +11,7 @@
 // +build !js
 // +build !darwin
 // +build !aix
+// +build !openbsd
 
 package runtime
 

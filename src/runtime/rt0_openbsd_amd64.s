@@ -4,32 +4,39 @@
 
 #include "textflag.h"
 
-#define HVT_HYPERCALL_PIO_BASE $0x500
+// HVT_HYPERCALL_PIO_BASE $0x500
 
-#define HVT_HYPERCALL_WALLTIME	$1
-#define HVT_HYPERCALL_PUTS	$2
-#define HVT_HYPERCALL_POLL	$3
-#define HVT_HYPERCALL_BLKINFO	$4
-#define HVT_HYPERCALL_BLKWRITE	$5
-#define HVT_HYPERCALL_BLKREAD	$6
-#define HVT_HYPERCALL_NETINFO	$7
-#define HVT_HYPERCALL_NETWRITE	$8
-#define HVT_HYPERCALL_NETREAD	$9
-#define HVT_HYPERCALL_HALT	$10
+#define HVT_HYPERCALL_WALLTIME	0x501
+#define HVT_HYPERCALL_PUTS	0x502
+#define HVT_HYPERCALL_POLL	0x503
+#define HVT_HYPERCALL_BLKWRITE	0x504
+#define HVT_HYPERCALL_BLKREAD	0x505
+#define HVT_HYPERCALL_NETWRITE	0x506
+#define HVT_HYPERCALL_NETREAD	0x507
+#define HVT_HYPERCALL_HALT	0x508
 
 TEXT _rt0_amd64_openbsd(SB),NOSPLIT,$-8
-	// read parameter from %RDI
-	// PUSHQ 	RDI
+	// Do a hypercall, puts of a string.
+	// MOVW	$HVT_HYPERCALL_PUTS, DX
+	// MOVQ	$runtime·helloSolo5(SB), AX
+	// OUTL
 
-	// do a hypercall, puts of a string.
-	MOVW	HVT_HYPERCALL_PIO_BASE, DX
-	ADDW	HVT_HYPERCALL_PUTS, DX
-	LEAL	runtime·helloSolo5(SB), AX
-	OUTL
+	PUSHQ	DI	// *bootInfo
+	CALL	runtime·solo5init(SB)
+	SUBQ	$8, SP
 
-	HLT
-
-	JMP	_rt0_amd64(SB)
+	// Solo5 has info in bootInfo, no argc/argv.
+	MOVQ	$0, DI	// argc
+	MOVQ	$0, SI	// argv
+	JMP	runtime·rt0_go(SB)
 
 TEXT _rt0_amd64_openbsd_lib(SB),NOSPLIT,$0
 	JMP	_rt0_amd64_lib(SB)
+
+// outl(dx uint32, ax uintptr)
+// For making hypercalls to solo5.
+TEXT runtime·outl(SB),NOSPLIT,$0-16
+	MOVL	dx+0(FP), DX
+	MOVQ	ax+8(FP), AX
+	OUTL
+	RET

@@ -9,6 +9,7 @@
 // +build !freebsd
 // +build !darwin
 // +build !aix
+// +build !openbsd
 
 package runtime
 

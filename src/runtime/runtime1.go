@@ -64,6 +64,10 @@ func args(c int32, v **byte) {
 }
 
 func goargs() {
+	if GOOS == "openbsd" {
+		// handled at goenvs()
+		return
+	}
 	if GOOS == "windows" {
 		return
 	}
