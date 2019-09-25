@@ -9,7 +9,7 @@
 // +build !js
 // +build !darwin
 // +build !aix
-// +build !openbsd
+// +build !vm
 
 package runtime
 

@@ -1,5 +1,3 @@
-// +build openbsd
-
 package runtime
 
 import (

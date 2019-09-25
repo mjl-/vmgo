@@ -129,7 +129,7 @@ func main() {
 	// Allow newproc to start new Ms.
 	mainStarted = true
 
-	if GOARCH != "wasm" && GOOS != "openbsd" { // no threads on wasm yet, so no sysmon
+	if GOARCH != "wasm" && GOOS != "vm" { // no threads on wasm yet, so no sysmon
 		systemstack(func() {
 			newm(sysmon, nil)
 		})
@@ -486,7 +486,7 @@ func cpuinit() {
 	var env string
 
 	switch GOOS {
-	case "aix", "darwin", "dragonfly", "freebsd", "netbsd", "illumos", "solaris", "linux":
+	case "aix", "darwin", "dragonfly", "freebsd", "netbsd", "openbsd", "illumos", "solaris", "linux":
 		cpu.DebugOptions = true
 
 		// Similar to goenv_unix but extracts the environment value for
@@ -1859,7 +1859,7 @@ func newm1(mp *m) {
 //
 // The calling thread must itself be in a known-good state.
 func startTemplateThread() {
-	if GOARCH == "wasm" || GOOS == "openbsd" { // no threads on wasm yet
+	if GOARCH == "wasm" || GOOS == "vm" { // no threads on wasm yet
 		return
 	}
 	if !atomic.Cas(&newmHandoff.haveTemplateThread, 0, 1) {
@@ -2699,7 +2699,7 @@ func goexit0(gp *g) {
 	gp.gcscanvalid = true
 	dropg()
 
-	if GOARCH == "wasm" || GOOS == "openbsd" { // no threads yet on wasm
+	if GOARCH == "wasm" || GOOS == "vm" { // no threads yet on wasm
 		gfput(_g_.m.p.ptr(), gp)
 		schedule() // never returns
 	}
@@ -2789,7 +2789,7 @@ func save(pc, sp uintptr) {
 //
 //go:nosplit
 func reentersyscall(pc, sp uintptr) {
-	if GOOS == "openbsd" {
+	if GOOS == "vm" {
 		throw("reentersyscall")
 	}
 
@@ -2860,7 +2860,7 @@ func reentersyscall(pc, sp uintptr) {
 //go:nosplit
 //go:linkname entersyscall
 func entersyscall() {
-	if GOOS == "openbsd" {
+	if GOOS == "vm" {
 		throw("attempting syscall")
 	}
 	reentersyscall(getcallerpc(), getcallersp())
@@ -3512,7 +3512,7 @@ func Breakpoint() {
 // or else the m might be different in this function than in the caller.
 //go:nosplit
 func dolockOSThread() {
-	if GOARCH == "wasm" || GOOS == "openbsd" {
+	if GOARCH == "wasm" || GOOS == "vm" {
 		return // no threads on wasm yet
 	}
 	_g_ := getg()
@@ -3563,7 +3563,7 @@ func lockOSThread() {
 // or else the m might be in different in this function than in the caller.
 //go:nosplit
 func dounlockOSThread() {
-	if GOARCH == "wasm" || GOOS == "openbsd" {
+	if GOARCH == "wasm" || GOOS == "vm" {
 		return // no threads on wasm yet
 	}
 	_g_ := getg()

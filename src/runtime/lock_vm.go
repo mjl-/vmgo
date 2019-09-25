@@ -1,5 +1,3 @@
-// +build openbsd
-
 // copied from lock_js.go
 
 package runtime

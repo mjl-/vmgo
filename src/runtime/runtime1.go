@@ -64,7 +64,7 @@ func args(c int32, v **byte) {
 }
 
 func goargs() {
-	if GOOS == "openbsd" {
+	if GOOS == "vm" {
 		// handled at goenvs()
 		return
 	}

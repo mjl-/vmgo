@@ -91,7 +91,7 @@ var (
 	FlagTextAddr    = flag.Int64("T", -1, "set text segment `address`")
 	flagEntrySymbol = flag.String("E", "", "set `entry` symbol name")
 
-	solo5Manifest = flag.String("solo5manifest", "", "path to solo5 manifest.json")
+	solo5Manifest = flag.String("solo5manifest", "manifest.json", "path to solo5 manifest.json")
 
 	cpuprofile     = flag.String("cpuprofile", "", "write cpu profile to `file`")
 	memprofile     = flag.String("memprofile", "", "write memory profile to `file`")
@@ -168,7 +168,7 @@ func Main(arch *sys.Arch, theArch Arch) {
 		}
 	}
 
-	if *solo5Manifest != "" {
+	if objabi.GOOS == "vm" {
 		parseSolo5Manifest(ctxt)
 	}
 

@@ -5,7 +5,7 @@
 // Fake network poller for NaCl and wasm/js.
 // Should never be used, because NaCl and wasm/js network connections do not honor "SetNonblock".
 
-// +build nacl js,wasm openbsd
+// +build nacl js,wasm vm
 
 package runtime
 

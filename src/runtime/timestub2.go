@@ -6,7 +6,7 @@
 // +build !windows
 // +build !freebsd
 // +build !aix
-// +build !openbsd
+// +build !vm
 
 package runtime
 

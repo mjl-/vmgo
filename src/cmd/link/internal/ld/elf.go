@@ -1504,6 +1504,8 @@ func (ctxt *Link) doelf() {
 	}
 	if ctxt.HeadType == objabi.Hopenbsd {
 		Addstring(shstrtab, ".note.openbsd.ident")
+	}
+	if ctxt.HeadType == objabi.Hvm {
 		Addstring(shstrtab, ".note.solo5.abi")
 		Addstring(shstrtab, ".note.solo5.manifest")
 	}
@@ -1948,7 +1950,7 @@ func Asmbelf(ctxt *Link, symo int64) {
 		phsh(pnote, sh)
 	}
 
-	if ctxt.HeadType == objabi.Hopenbsd {
+	if ctxt.HeadType == objabi.Hvm {
 		newNotePhdr := func() *ElfPhdr {
 			ph := newElfPhdr()
 			ph.type_ = PT_NOTE
@@ -2263,6 +2265,8 @@ elfobj:
 		eh.ident[EI_OSABI] = ELFOSABI_OPENBSD
 	} else if ctxt.HeadType == objabi.Hdragonfly {
 		eh.ident[EI_OSABI] = ELFOSABI_NONE
+	} else if ctxt.HeadType == objabi.Hvm {
+		eh.ident[EI_OSABI] = ELFOSABI_STANDALONE
 	}
 	if elf64 {
 		eh.ident[EI_CLASS] = ELFCLASS64
@@ -2310,7 +2314,7 @@ elfobj:
 		if ctxt.HeadType == objabi.Hopenbsd {
 			a += int64(elfwriteopenbsdsig(ctxt.Out))
 		}
-		if ctxt.solo5Manifest != nil {
+		if ctxt.HeadType == objabi.Hvm {
 			a += int64(elfwritesolo5abi(ctxt.Out))
 			a += int64(elfwritesolo5manifest(ctxt, ctxt.Out))
 		}
