@@ -1,3 +1,25 @@
+# vmgo
+
+NOTE: this is work in progress.
+Several branches with potentially interesting code exist (nofiles, netstack, ...).
+
+The goal of vmgo is to get to a go toolchain that can compile existing
+Go code (with no or otherwise minimal changes) to a standalone virtual
+image that can run in a (minimal) virtual machine monitor.
+
+This branch adds support for GOOS=solo5hvt (WIP) for compiling unikernels
+to run on the solo5hvt hypervisor.
+
+The goal:
+
+	cd existing-go-project
+	GOOS=solo5hvt GOARCH=amd64 go build -o unikernel
+	solo5-hvt --mem=512 --net:net0=tap0 --block:blk0=disk0.img unikernel
+
+
+(original Go README below)
+
+
 # The Go Programming Language
 
 Go is an open source programming language that makes it easy to build simple,
