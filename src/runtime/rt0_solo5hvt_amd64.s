@@ -15,12 +15,7 @@
 #define HVT_HYPERCALL_NETREAD	0x507
 #define HVT_HYPERCALL_HALT	0x508
 
-TEXT _rt0_amd64_vm(SB),NOSPLIT,$-8
-	// Do a hypercall, puts of a string.
-	// MOVW	$HVT_HYPERCALL_PUTS, DX
-	// MOVQ	$runtime·helloSolo5(SB), AX
-	// OUTL
-
+TEXT _rt0_amd64_solo5hvt(SB),NOSPLIT,$-8
 	PUSHQ	DI	// *bootInfo
 	CALL	runtime·solo5init(SB)
 	SUBQ	$8, SP
@@ -29,11 +24,3 @@ TEXT _rt0_amd64_vm(SB),NOSPLIT,$-8
 	MOVQ	$0, DI	// argc
 	MOVQ	$0, SI	// argv
 	JMP	runtime·rt0_go(SB)
-
-// outl(dx uint32, ax uintptr)
-// For making hypercalls to solo5.
-TEXT runtime·outl(SB),NOSPLIT,$0-16
-	MOVL	dx+0(FP), DX
-	MOVQ	ax+8(FP), AX
-	OUTL
-	RET

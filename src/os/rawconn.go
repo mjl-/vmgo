@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // +build !plan9
+// +build !solo5hvt
 
 package os
 

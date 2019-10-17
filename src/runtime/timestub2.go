@@ -6,7 +6,7 @@
 // +build !windows
 // +build !freebsd
 // +build !aix
-// +build !vm
+// +build !solo5hvt
 
 package runtime
 

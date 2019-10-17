@@ -64,7 +64,7 @@ func args(c int32, v **byte) {
 }
 
 func goargs() {
-	if GOOS == "vm" {
+	if GOOS == "solo5hvt" {
 		// handled at goenvs()
 		return
 	}

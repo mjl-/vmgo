@@ -4,8 +4,10 @@ import (
 	"unsafe"
 )
 
-// End of allocated memory. Next allocation comes after.
-var memoryEnd uintptr
+var (
+	memoryNext uintptr
+	memoryEnd  uintptr
+)
 
 //go:nosplit
 func sysAlloc(n uintptr, sysStat *uint64) unsafe.Pointer {
@@ -37,8 +39,11 @@ func sysReserve(v unsafe.Pointer, n uintptr) unsafe.Pointer {
 		return nil
 	}
 
-	p := memoryEnd
-	memoryEnd += n
+	if memoryNext+n > memoryEnd {
+		return nil
+	}
+	p := memoryNext
+	memoryNext += n
 	return unsafe.Pointer(p)
 }
 

@@ -10,7 +10,13 @@
 #include "go_tls.h"
 #include "textflag.h"
 
-#define CLOCK_MONOTONIC	$3
+// outl(dx uint32, ax uintptr)
+// For making solo5 hypercalls.
+TEXT runtime·outl(SB),NOSPLIT,$0-16
+	MOVL	dx+0(FP), DX
+	MOVQ	ax+8(FP), AX
+	OUTL
+	RET
 
 // set tls base to DI
 TEXT runtime·settls(SB),NOSPLIT,$0

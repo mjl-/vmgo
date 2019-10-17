@@ -168,7 +168,7 @@ func Main(arch *sys.Arch, theArch Arch) {
 		}
 	}
 
-	if objabi.GOOS == "vm" {
+	if objabi.GOOS == "solo5hvt" {
 		parseSolo5Manifest(ctxt)
 	}
 

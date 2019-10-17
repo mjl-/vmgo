@@ -9,7 +9,7 @@
 // +build !js
 // +build !darwin
 // +build !aix
-// +build !vm
+// +build !solo5hvt
 
 package runtime
 

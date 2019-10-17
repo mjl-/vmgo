@@ -22,4 +22,4 @@ const GoosPlan9 = 1
 const GoosSolaris = 0
 const GoosWindows = 0
 const GoosZos = 0
-const GoosVm = 0
+const GoosSolo5hvt = 0

@@ -102,13 +102,23 @@ func archinit(ctxt *ld.Link) {
 		objabi.Hnetbsd,    /* netbsd */
 		objabi.Hopenbsd,   /* openbsd */
 		objabi.Hdragonfly, /* dragonfly */
-		objabi.Hsolaris,   /* solaris */
-		objabi.Hvm:        /* vm */
+		objabi.Hsolaris:   /* solaris */
 		ld.Elfinit(ctxt)
 
 		ld.HEADR = ld.ELFRESERVE
 		if *ld.FlagTextAddr == -1 {
 			*ld.FlagTextAddr = (1 << 22) + int64(ld.HEADR)
+		}
+		if *ld.FlagRound == -1 {
+			*ld.FlagRound = 4096
+		}
+
+	case objabi.Hsolo5hvt:        /* solo5hvt */
+		ld.Elfinit(ctxt)
+
+		ld.HEADR = ld.ELFRESERVE
+		if *ld.FlagTextAddr == -1 {
+			*ld.FlagTextAddr = 0x100000 + int64(ld.HEADR)
 		}
 		if *ld.FlagRound == -1 {
 			*ld.FlagRound = 4096
